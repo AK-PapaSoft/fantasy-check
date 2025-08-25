@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  tgUserId   BigInt   @unique
+  lang       String   @default("uk")
+  tz         String   @default("Europe/Brussels")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  providers  Provider[]
+  leagues    UserLeague[]
+  alerts     AlertPref[]
+
+  @@map("users")
+}
+
+model Provider {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  provider         String   @default("sleeper")
+  providerUsername String
+  providerUserId   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("providers")
+}
+
+model League {
+  id               Int      @id @default(autoincrement())
+  provider         String   @default("sleeper")
+  providerLeagueId String   @unique
+  name             String
+  season           Int
+  sport            String   @default("nfl")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  users    UserLeague[]
+  matchups MatchupsCache[]
+  alerts   AlertPref[]
+
+  @@map("leagues")
+}
+
+model UserLeague {
+  userId   Int
+  leagueId Int
+  teamId   String // roster_id/owner_id for Sleeper
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([userId, leagueId])
+  @@map("user_leagues")
+}
+
+model MatchupsCache {
+  leagueId  Int
+  week      Int
+  payload   Json
+  fetchedAt DateTime @default(now())
+  
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([leagueId, week])
+  @@map("matchups_cache")
+}
+
+model AlertPref {
+  userId   Int
+  leagueId Int
+  pregame  Boolean @default(true)
+  scoring  Boolean @default(true)
+  waivers  Boolean @default(true)
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@id([userId, leagueId])
+  @@map("alert_prefs")
+}

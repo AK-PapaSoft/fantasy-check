@@ -1,0 +1,605 @@
+openapi: 3.0.3
+info:
+  title: Sleeper NFL Bot API
+  description: |
+    Production-ready REST API for the Sleeper NFL Telegram Bot.
+    
+    This API provides endpoints for managing Sleeper fantasy football integrations,
+    user data, and generating daily digests. Designed for easy integration with
+    web frontends and third-party applications.
+    
+    ## Features
+    - User management and Sleeper account linking
+    - League data synchronization
+    - Fantasy football daily digests
+    - Cache management for optimal performance
+    
+    ## Rate Limits
+    - 100 requests per minute per IP
+    - 1000 requests per hour per user
+    
+  version: 1.0.0
+  contact:
+    name: Sleeper NFL Bot
+    url: https://github.com/your-repo/sleeper-nfl-bot
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://your-app.fly.dev/api/v1
+    description: Production server
+  - url: http://localhost:8080/api/v1
+    description: Development server
+
+paths:
+  # Health Check
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Application health check
+      description: Returns the current health status of the application and its dependencies
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Application is degraded (e.g., database issues)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # User Management
+  /users/{tgUserId}/link-sleeper:
+    post:
+      tags:
+        - Users
+      summary: Link Sleeper account
+      description: |
+        Links a Telegram user to their Sleeper account by username.
+        This will fetch all active NFL leagues for the current season
+        and create the necessary database associations.
+      operationId: linkSleeperAccount
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSleeperRequest'
+            example:
+              username: "john_doe"
+      responses:
+        '200':
+          description: Sleeper account linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkSleeperResponse'
+              example:
+                success: true
+                message: "Зв'язав користувача Sleeper: john_doe"
+                data:
+                  username: "john_doe"
+                  leaguesCount: 2
+                  leagues:
+                    - id: 1
+                      name: "Friends League"
+                      season: 2024
+                      sport: "nfl"
+                      teamId: "3"
+        '400':
+          description: Invalid request or Sleeper user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{tgUserId}/leagues:
+    get:
+      tags:
+        - Users
+      summary: Get user leagues
+      description: Returns all leagues associated with the user
+      operationId: getUserLeagues
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: User leagues retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLeaguesResponse'
+              example:
+                success: true
+                data:
+                  leagues:
+                    - id: 1
+                      name: "Friends League"
+                      season: 2024
+                      sport: "nfl"
+                      teamId: "3"
+                      alerts:
+                        pregame: true
+                        scoring: true
+                        waivers: true
+                  count: 1
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{tgUserId}/digest:
+    post:
+      tags:
+        - Users
+      summary: Get user digest
+      description: |
+        Generates a fantasy football digest for all user's teams.
+        Returns formatted messages for each league/team combination.
+      operationId: getUserDigest
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DigestRequest'
+            example:
+              week: 10
+      responses:
+        '200':
+          description: Digest generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigestResponse'
+              example:
+                success: true
+                data:
+                  digests:
+                    - league: "Friends League"
+                      week: 10
+                      message: "🏈 Sleeper | Ліга: Friends League | Тиждень 10\n\nКоманда: Team 3\nОпонент: Team 5\nРахунок: 98.5 – 87.2\n\nТоп гравці: player1: 18.5pts, player2: 15.2pts"
+                      data:
+                        team: "Team 3"
+                        opponent: "Team 5"
+                        myScore: 98.5
+                        oppScore: 87.2
+                        topPlayers: ["player1: 18.5pts", "player2: 15.2pts"]
+                        upcomingGames: []
+                        reminders: ["Не забудь про waivers!", "Перевір склад команди!"]
+                  count: 1
+                  week: 10
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # League Management
+  /leagues/{leagueId}/refresh:
+    post:
+      tags:
+        - Leagues
+      summary: Refresh league data
+      description: |
+        Forces a refresh of league matchup data for a specific week.
+        Useful for getting the latest scores and player performance.
+      operationId: refreshLeagueData
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshLeagueRequest'
+            example:
+              week: 10
+      responses:
+        '200':
+          description: League data refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshLeagueResponse'
+              example:
+                success: true
+                message: "League data refreshed successfully"
+                data:
+                  leagueId: 1
+                  week: 10
+                  refreshedAt: "2024-11-15T14:30:00.000Z"
+        '400':
+          description: Invalid league ID or week
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: League not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /leagues/{leagueId}:
+    get:
+      tags:
+        - Leagues
+      summary: Get league information
+      description: Get basic information about a specific league (placeholder for future implementation)
+      operationId: getLeagueInfo
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      responses:
+        '501':
+          description: Not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Not implemented yet"
+                message: "League info endpoint will be available in future version"
+                success: false
+
+components:
+  parameters:
+    TelegramUserId:
+      name: tgUserId
+      in: path
+      required: true
+      description: Telegram user ID
+      schema:
+        type: string
+        pattern: '^\d+$'
+        example: "123456789"
+
+    LeagueId:
+      name: leagueId
+      in: path
+      required: true
+      description: Internal league ID
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        example: 1
+
+  schemas:
+    # Health Check
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - uptime
+        - version
+        - database
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error]
+          description: Overall application status
+        uptime:
+          type: number
+          description: Application uptime in seconds
+        version:
+          type: string
+          description: Application version
+        database:
+          type: boolean
+          description: Database connectivity status
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        error:
+          type: string
+          description: Error message if status is not ok
+
+    # User Management
+    LinkSleeperRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          pattern: '^[a-zA-Z0-9_]+$'
+          minLength: 1
+          maxLength: 50
+          description: Sleeper username (alphanumeric and underscores only)
+          example: "john_doe"
+
+    LinkSleeperResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          description: Success message in Ukrainian
+        data:
+          type: object
+          required:
+            - username
+            - leaguesCount
+            - leagues
+          properties:
+            username:
+              type: string
+            leaguesCount:
+              type: integer
+            leagues:
+              type: array
+              items:
+                $ref: '#/components/schemas/LeagueSummary'
+
+    UserLeaguesResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - leagues
+            - count
+          properties:
+            leagues:
+              type: array
+              items:
+                $ref: '#/components/schemas/LeagueInfo'
+            count:
+              type: integer
+
+    LeagueSummary:
+      type: object
+      required:
+        - id
+        - name
+        - season
+        - sport
+        - teamId
+      properties:
+        id:
+          type: integer
+          description: Internal league ID
+        name:
+          type: string
+        season:
+          type: integer
+        sport:
+          type: string
+          enum: [nfl]
+        teamId:
+          type: string
+          description: User's team/roster ID in this league
+
+    LeagueInfo:
+      allOf:
+        - $ref: '#/components/schemas/LeagueSummary'
+        - type: object
+          required:
+            - alerts
+          properties:
+            alerts:
+              $ref: '#/components/schemas/AlertPreferences'
+
+    AlertPreferences:
+      type: object
+      required:
+        - pregame
+        - scoring
+        - waivers
+      properties:
+        pregame:
+          type: boolean
+          description: Pregame alerts enabled
+        scoring:
+          type: boolean
+          description: Live scoring alerts enabled
+        waivers:
+          type: boolean
+          description: Waiver wire alerts enabled
+
+    # Digest
+    DigestRequest:
+      type: object
+      properties:
+        week:
+          type: integer
+          minimum: 1
+          maximum: 18
+          description: NFL week number (optional, defaults to current week)
+
+    DigestResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - digests
+            - count
+            - week
+          properties:
+            digests:
+              type: array
+              items:
+                $ref: '#/components/schemas/DigestItem'
+            count:
+              type: integer
+            week:
+              oneOf:
+                - type: integer
+                - type: string
+
+    DigestItem:
+      type: object
+      required:
+        - league
+        - week
+        - message
+        - data
+      properties:
+        league:
+          type: string
+          description: League name
+        week:
+          type: integer
+          description: NFL week
+        message:
+          type: string
+          description: Formatted digest message in Ukrainian
+        data:
+          $ref: '#/components/schemas/DigestData'
+
+    DigestData:
+      type: object
+      required:
+        - team
+        - topPlayers
+        - upcomingGames
+        - reminders
+      properties:
+        team:
+          type: string
+          description: User's team name/ID
+        opponent:
+          type: string
+          description: Opponent team name/ID
+        myScore:
+          type: number
+          format: float
+          description: User's team score
+        oppScore:
+          type: number
+          format: float
+          description: Opponent team score
+        topPlayers:
+          type: array
+          items:
+            type: string
+          description: Top performing players with points
+        upcomingGames:
+          type: array
+          items:
+            type: string
+          description: Upcoming NFL games today
+        reminders:
+          type: array
+          items:
+            type: string
+          description: Fantasy football reminders
+
+    # League Management
+    RefreshLeagueRequest:
+      type: object
+      required:
+        - week
+      properties:
+        week:
+          type: integer
+          minimum: 1
+          maximum: 18
+          description: NFL week to refresh
+
+    RefreshLeagueResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          required:
+            - leagueId
+            - week
+            - refreshedAt
+          properties:
+            leagueId:
+              type: integer
+            week:
+              type: integer
+            refreshedAt:
+              type: string
+              format: date-time
+
+    # Error Handling
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - success
+      properties:
+        error:
+          type: string
+          description: Error message
+        success:
+          type: boolean
+          enum: [false]
+        details:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+          description: Additional error details
+
+tags:
+  - name: Health
+    description: Application health monitoring
+  - name: Users
+    description: User management and Sleeper integration
+  - name: Leagues
+    description: League data management

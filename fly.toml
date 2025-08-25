@@ -1,0 +1,62 @@
+# Fly.io configuration for sleeper-nfl-bot
+app = "sleeper-nfl-bot"
+primary_region = "ams" # Amsterdam - close to Europe for better latency
+
+# Build configuration
+[build]
+  dockerfile = "Dockerfile"
+
+# Environment variables
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  TIMEZONE = "Europe/Brussels"
+  SLEEPER_API_BASE = "https://api.sleeper.app/v1"
+
+# HTTP service configuration
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # HTTP checks
+  [[services.http_checks]]
+    interval = 10000
+    timeout = 2000
+    grace_period = "5s"
+    method = "get"
+    path = "/healthz"
+
+  # Ports configuration
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  # Connection limits
+  [services.concurrency]
+    hard_limit = 50
+    soft_limit = 25
+    type = "connections"
+
+# Machine configuration
+[vm]
+  size = "shared-cpu-1x"  # Basic tier for MVP
+  memory = "512mb"
+
+# Deploy configuration
+[deploy]
+  strategy = "immediate"  # For single instance deployment
+
+# Processes (if needed for background jobs)
+[processes]
+  app = "node dist/index.js"
+
+# Database migration on release (optional - can be done manually)
+[release_command]
+  command = "npx prisma migrate deploy"
