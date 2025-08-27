@@ -1,5 +1,5 @@
 # Fly.io configuration for sleeper-nfl-bot
-app = "sleeper-nfl-bot"
+app = "sleeper-bot-42819"
 primary_region = "ams" # Amsterdam - close to Europe for better latency
 
 # Build configuration
