@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { healthRouter } from './routes/health';
+import { simpleHealthRouter } from './routes/simple-health';
 import { usersRouter } from './routes/users';
 import { leaguesRouter } from './routes/leagues';
 import pino from 'pino';
@@ -24,7 +25,7 @@ export class HttpServer {
     // CORS configuration
     const corsOptions = {
       origin: process.env.NODE_ENV === 'production' 
-        ? [process.env.APP_BASE_URL] 
+        ? process.env.APP_BASE_URL ? [process.env.APP_BASE_URL] : false
         : true, // Allow all origins in development
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -68,6 +69,9 @@ export class HttpServer {
   }
 
   private setupRoutes(): void {
+    // Simple health and root routes
+    this.app.use('/', simpleHealthRouter);
+    
     // Health check (no /api prefix for load balancer)
     this.app.use('/', healthRouter);
 

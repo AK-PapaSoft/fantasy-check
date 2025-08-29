@@ -57,7 +57,7 @@ export function getCurrentTimeInTimezone(timezone: string): Date {
     
     return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
   } catch {
-    return now;
+    return new Date();
   }
 }
 

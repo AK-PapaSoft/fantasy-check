@@ -44,7 +44,7 @@ jest.config.*
 # Development files
 .eslintrc*
 .prettierrc*
-tsconfig.json
+# tsconfig.json - needed for build
 
 # Temporary files
 tmp/

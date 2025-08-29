@@ -26,9 +26,14 @@ class Application {
       // Validate required environment variables
       this.validateEnvironment();
 
-      // Connect to database
-      await connectDatabase();
-      logger.info('Database connected successfully');
+      // Try to connect to database
+      try {
+        await connectDatabase();
+        logger.info('Database connected successfully');
+      } catch (error) {
+        logger.warn('Database connection failed, continuing without database:', error);
+        // Continue startup - health check will show database status
+      }
 
       // Initialize HTTP server
       const port = parseInt(process.env.PORT || '8080');
@@ -47,11 +52,12 @@ class Application {
           throw new Error('APP_BASE_URL is required for webhook mode');
         }
 
-        // Add webhook handler to HTTP server
-        this.httpServer.addWebhookPath('/webhook', this.telegramBot.getApp().webhookCallback('/webhook'));
+        // Add webhook handler to HTTP server  
+        const webhookHandler = this.telegramBot['bot'].webhookCallback('/webhook');
+        this.httpServer.addWebhookPath('/webhook', webhookHandler);
         
-        // Start with webhook
-        await this.telegramBot.startWebhook(webhookUrl, port);
+        // Just set the webhook URL, don't start webhook server since we have Express
+        await this.telegramBot['bot'].telegram.setWebhook(`${webhookUrl}/webhook`);
       } else {
         // Development: use polling
         await this.telegramBot.startPolling();
@@ -85,7 +91,6 @@ class Application {
   private validateEnvironment(): void {
     const required = [
       'TELEGRAM_TOKEN',
-      'DATABASE_URL',
     ];
 
     const missing = required.filter(key => !process.env[key]);
@@ -96,6 +101,7 @@ class Application {
 
     // Validate optional but recommended variables
     const recommended = [
+      'DATABASE_URL',
       'SLEEPER_API_BASE',
       'TIMEZONE',
     ];

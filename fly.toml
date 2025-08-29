@@ -2,7 +2,7 @@
 app = "sleeper-bot-42819"
 primary_region = "ams" # Amsterdam - close to Europe for better latency
 
-# Build configuration
+# Build configuration  
 [build]
   dockerfile = "Dockerfile"
 
@@ -20,6 +20,7 @@ primary_region = "ams" # Amsterdam - close to Europe for better latency
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["app"]
 
   # HTTP checks
   [[services.http_checks]]
@@ -27,7 +28,7 @@ primary_region = "ams" # Amsterdam - close to Europe for better latency
     timeout = 2000
     grace_period = "5s"
     method = "get"
-    path = "/healthz"
+    path = "/health"
 
   # Ports configuration
   [[services.ports]]
@@ -53,7 +54,7 @@ primary_region = "ams" # Amsterdam - close to Europe for better latency
 [deploy]
   strategy = "immediate"  # For single instance deployment
 
-# Processes (if needed for background jobs)
+# Processes
 [processes]
   app = "node dist/index.js"
 

@@ -1,45 +1,37 @@
-# Multi-stage build for optimized production image
-FROM node:20-alpine AS deps
+# Simple single-stage build
+FROM node:20-alpine
 
-# Install dependencies only when needed
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-# Build stage
-FROM node:20-alpine AS build
-
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . .
-COPY --from=deps /app/node_modules ./node_modules
-
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build application
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine AS production
-
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install required packages for Prisma
+RUN apk add --no-cache \
+    dumb-init \
+    openssl \
+    openssl-dev
 
 # Create app directory and user
 WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodeuser -u 1001
 
-# Copy built application
-COPY --from=build --chown=nodeuser:nodejs /app/dist ./dist
-COPY --from=build --chown=nodeuser:nodejs /app/node_modules ./node_modules
-COPY --from=build --chown=nodeuser:nodejs /app/prisma ./prisma
-COPY --from=build --chown=nodeuser:nodejs /app/package.json ./
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm ci
 
-# Set environment variables
+# Copy source code and config
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Change ownership
+RUN chown -R nodeuser:nodejs /app
+
+# Set environment
 ENV NODE_ENV=production
 ENV PORT=8080
 
@@ -53,8 +45,6 @@ USER nodeuser
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080/healthz', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
 # Start application
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/index.js"]

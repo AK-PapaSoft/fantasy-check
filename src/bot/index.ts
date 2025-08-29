@@ -92,14 +92,11 @@ export class TelegramBot {
       // Set webhook
       await this.bot.telegram.setWebhook(`${webhookUrl}${path}`);
       
-      // Start webhook server
-      await this.bot.startWebhook(path, null, port);
-      
       logger.info({
         webhookUrl: `${webhookUrl}${path}`,
         port,
         path,
-      }, 'Bot started with webhook');
+      }, 'Bot webhook configured');
 
     } catch (error) {
       logger.error('Failed to start bot with webhook:', error);
