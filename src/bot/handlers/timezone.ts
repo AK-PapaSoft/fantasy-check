@@ -31,11 +31,8 @@ export async function handleTimezone(ctx: Context): Promise<void> {
 
     logger.info({ userId }, 'User requested timezone change');
 
-    // Get current user data to show current timezone
-    const leagues = await fantasyService.getUserLeagues(BigInt(userId));
-    
-    // For now, show current timezone as default (would need to get from user profile)
-    const currentTz = process.env.TIMEZONE || 'Europe/Brussels';
+    // Show default timezone (simplified for now)
+    const currentTz = 'Europe/Brussels';
     
     let message_text = t('current_timezone', { timezone: currentTz }) + '\n\n';
     message_text += t('timezone_prompt') + '\n\n';

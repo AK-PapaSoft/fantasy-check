@@ -35,7 +35,7 @@ export async function handleLeagues(ctx: Context): Promise<void> {
         name: league.name,
         season: league.season.toString(),
         sport: league.sport.toUpperCase(),
-        teamId: league.teamId,
+        teamId: league.teamName || `Team ${league.teamId}`,
       });
 
       message += leagueInfo + '\n\n';

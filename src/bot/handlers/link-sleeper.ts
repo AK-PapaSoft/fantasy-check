@@ -36,46 +36,41 @@ export async function handleLinkSleeper(ctx: Context): Promise<void> {
       username,
     }, 'User linking Sleeper account');
 
-    // Send loading message
-    const loadingMessage = await ctx.reply(t('linking_user', { username }));
+    await ctx.reply(t('linking_user', { username }));
 
     try {
-      // Sync user data
-      await fantasyService.syncUserSleeper(BigInt(userId), username);
+      const result = await fantasyService.syncUserSleeper(BigInt(userId), username, {
+        tgUsername: ctx.from?.username,
+        firstName: ctx.from?.first_name,
+        lastName: ctx.from?.last_name
+      });
 
-      // Get synced leagues count
-      const leagues = await fantasyService.getUserLeagues(BigInt(userId));
+      if (result && result.length > 0) {
+        const leaguesList = result
+          .map((league: any) => `• ${league.leagueName}`)
+          .join('\n');
 
-      // Update message with success
-      await ctx.telegram.editMessageText(
-        ctx.chat!.id,
-        loadingMessage.message_id,
-        undefined,
-        t('linked_ok', { username }) + '\n' + t('leagues_synced', { count: leagues.length }),
-        { parse_mode: 'Markdown' }
-      );
+        await ctx.reply(t('leagues_synced', {
+          username,
+          count: result.length,
+          leagues: leaguesList
+        }));
+      } else {
+        await ctx.reply(t('no_leagues_found', { username }));
+      }
 
-      logger.info({
-        userId,
-        username,
-        leaguesCount: leagues.length,
-      }, 'Successfully linked Sleeper account');
-
-    } catch (syncError) {
-      const errorMessage = syncError instanceof Error ? syncError.message : t('error_sleeper_api');
-      
-      await ctx.telegram.editMessageText(
-        ctx.chat!.id,
-        loadingMessage.message_id,
-        undefined,
-        errorMessage
-      );
-
+    } catch (error: any) {
       logger.error({
         userId,
         username,
-        error: errorMessage,
-      }, 'Failed to link Sleeper account');
+        error: error instanceof Error ? error.message : error,
+      }, 'Error syncing Sleeper account');
+
+      if (error.message?.includes('User not found')) {
+        await ctx.reply(t('user_not_found', { username }));
+      } else {
+        await ctx.reply(t('error_generic'));
+      }
     }
 
   } catch (error) {

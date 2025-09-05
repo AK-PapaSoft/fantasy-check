@@ -5,6 +5,8 @@ import { handleLinkSleeper } from './handlers/link-sleeper';
 import { handleLeagues, handleLeagueCallback } from './handlers/leagues';
 import { handleToday } from './handlers/today';
 import { handleTimezone, handleTimezoneInput } from './handlers/timezone';
+import { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } from './handlers/feedback';
+import { handleLanguage } from './handlers/language';
 import { t } from '../i18n';
 import pino from 'pino';
 
@@ -30,12 +32,25 @@ export class TelegramBot {
     this.bot.command('leagues', handleLeagues);
     this.bot.command('today', handleToday);
     this.bot.command('timezone', handleTimezone);
+    this.bot.command('feedback', handleFeedback);
+    this.bot.command('lang', handleLanguage);
 
     // Callback query handlers (inline buttons)
     this.bot.on('callback_query', handleLeagueCallback);
 
-    // Text message handler (for timezone input)
-    this.bot.on('text', handleTimezoneInput);
+    // Text message handler (for timezone input and feedback)
+    this.bot.on('text', async (ctx: Context) => {
+      const userId = ctx.from?.id;
+      
+      // Check if user is in feedback mode first
+      if (userId && isUserInFeedbackMode(userId)) {
+        await handleFeedbackMessage(ctx);
+        return;
+      }
+      
+      // Otherwise handle timezone input
+      await handleTimezoneInput(ctx);
+    });
 
     // Handle unknown commands
     this.bot.on('message', async (ctx: Context) => {

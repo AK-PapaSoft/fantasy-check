@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { TelegramBot } from './bot';
+import { DiscordBot } from './discord-bot';
 import { HttpServer } from './http';
 import { JobManager } from './jobs';
 import { connectDatabase, disconnectDatabase } from './db';
@@ -15,6 +16,7 @@ const logger = pino({
 
 class Application {
   private telegramBot?: TelegramBot;
+  private discordBot?: DiscordBot;
   private httpServer?: HttpServer;
   private jobManager?: JobManager;
   private isShuttingDown = false;
@@ -53,8 +55,27 @@ class Application {
         }
 
         // Add webhook handler to HTTP server  
-        const webhookHandler = this.telegramBot['bot'].webhookCallback('/webhook');
+        const webhookHandler = async (req: any, res: any) => {
+          try {
+            logger.info({ 
+              body: req.body ? JSON.stringify(req.body).substring(0, 200) : 'no body',
+              headers: req.headers 
+            }, 'Webhook request received');
+            
+            // Process the update with Telegraf
+            await this.telegramBot!['bot'].handleUpdate(req.body);
+            res.status(200).send('OK');
+            
+            logger.info('Webhook processed successfully');
+          } catch (error) {
+            logger.error({ error: error instanceof Error ? error.message : error }, 'Webhook processing error');
+            res.status(500).send('Error');
+          }
+        };
         this.httpServer.addWebhookPath('/webhook', webhookHandler);
+        
+        // Add 404 handler after webhook is set up
+        this.httpServer.add404Handler();
         
         // Just set the webhook URL, don't start webhook server since we have Express
         await this.telegramBot['bot'].telegram.setWebhook(`${webhookUrl}/webhook`);
@@ -63,8 +84,21 @@ class Application {
         await this.telegramBot.startPolling();
       }
 
+      // Initialize Discord bot if token provided
+      const discordToken = process.env.DISCORD_TOKEN;
+      const discordClientId = process.env.DISCORD_CLIENT_ID;
+      
+      if (discordToken && discordClientId) {
+        this.discordBot = new DiscordBot(discordToken, discordClientId);
+        await this.discordBot.registerCommands();
+        await this.discordBot.start();
+        logger.info('Discord bot started successfully');
+      } else {
+        logger.info('Discord bot disabled (no token/client ID provided)');
+      }
+
       // Initialize and start cron jobs
-      this.jobManager = new JobManager(this.telegramBot);
+      this.jobManager = new JobManager(this.telegramBot, this.discordBot);
       this.jobManager.start();
 
       // Setup graceful shutdown
@@ -176,6 +210,11 @@ class Application {
     // Stop Telegram bot
     if (this.telegramBot) {
       shutdownPromises.push(this.telegramBot.stop());
+    }
+
+    // Stop Discord bot
+    if (this.discordBot) {
+      shutdownPromises.push(this.discordBot.stop());
     }
 
     // Wait for graceful shutdowns

@@ -81,6 +81,18 @@ export function getCommonTimezones(): string[] {
 }
 
 /**
+ * Get day of week in specific timezone (0 = Sunday, 1 = Monday, etc.)
+ */
+export function getDayOfWeekInTimezone(timezone: string): number {
+  try {
+    const timeInZone = getCurrentTimeInTimezone(timezone);
+    return timeInZone.getDay();
+  } catch {
+    return new Date().getDay();
+  }
+}
+
+/**
  * Format time for display in specific timezone
  */
 export function formatTimeInTimezone(date: Date, timezone: string): string {

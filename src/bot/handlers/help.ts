@@ -13,9 +13,7 @@ export async function handleHelp(ctx: Context): Promise<void> {
 
     logger.info({ userId }, 'User requested help');
 
-    await ctx.reply(t('help'), {
-      parse_mode: 'Markdown',
-    });
+    await ctx.reply(t('help'));
 
   } catch (error) {
     logger.error({

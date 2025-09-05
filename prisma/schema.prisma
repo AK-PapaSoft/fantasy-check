@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -14,14 +14,18 @@ datasource db {
 model User {
   id         Int      @id @default(autoincrement())
   tgUserId   BigInt   @unique
+  tgUsername String? // @username from Telegram/Discord
+  firstName  String? // first_name from Telegram/Discord
+  lastName   String? // last_name from Telegram/Discord
   lang       String   @default("uk")
-  tz         String   @default("Europe/Brussels")
+  tz         String   @default("Europe/Kiev")
+  platform   String   @default("telegram") // "telegram" or "discord"
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
-  providers  Provider[]
-  leagues    UserLeague[]
-  alerts     AlertPref[]
+
+  providers Provider[]
+  leagues   UserLeague[]
+  alerts    AlertPref[]
 
   @@map("users")
 }
@@ -34,7 +38,7 @@ model Provider {
   providerUserId   String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
@@ -50,7 +54,7 @@ model League {
   sport            String   @default("nfl")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  
+
   users    UserLeague[]
   matchups MatchupsCache[]
   alerts   AlertPref[]
@@ -62,7 +66,7 @@ model UserLeague {
   userId   Int
   leagueId Int
   teamId   String // roster_id/owner_id for Sleeper
-  
+
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
 
@@ -75,7 +79,7 @@ model MatchupsCache {
   week      Int
   payload   Json
   fetchedAt DateTime @default(now())
-  
+
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
 
   @@id([leagueId, week])
@@ -88,7 +92,7 @@ model AlertPref {
   pregame  Boolean @default(true)
   scoring  Boolean @default(true)
   waivers  Boolean @default(true)
-  
+
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
 

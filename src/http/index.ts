@@ -82,15 +82,6 @@ export class HttpServer {
     // Webhook endpoint for Telegram (handled by bot instance)
     // This will be set up when integrating with the bot
 
-    // 404 handler for unknown routes
-    this.app.use('*', (req: Request, res: Response) => {
-      res.status(404).json({
-        error: 'Endpoint not found',
-        path: req.originalUrl,
-        method: req.method,
-      });
-    });
-
     logger.info('HTTP routes setup completed');
   }
 
@@ -144,7 +135,22 @@ export class HttpServer {
    * Add webhook path for Telegram bot
    */
   addWebhookPath(path: string, handler: any): void {
-    this.app.use(path, handler);
+    this.app.post(path, handler);
     logger.info({ path }, 'Webhook path added');
+  }
+
+  /**
+   * Add 404 handler (should be called after all routes including webhooks are set up)
+   */
+  add404Handler(): void {
+    // 404 handler for unknown routes
+    this.app.use('*', (req: Request, res: Response) => {
+      res.status(404).json({
+        error: 'Endpoint not found',
+        path: req.originalUrl,
+        method: req.method,
+      });
+    });
+    logger.info('404 handler added');
   }
 }

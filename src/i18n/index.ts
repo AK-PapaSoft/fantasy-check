@@ -1,9 +1,10 @@
 import { uk } from './uk';
+import { en } from './en';
 
 // Language map - ready for expansion
 const languages = {
   uk,
-  // en: {} // Add English later
+  en,
 };
 
 type Language = keyof typeof languages;

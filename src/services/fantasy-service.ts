@@ -23,6 +23,8 @@ export interface UserLeagueInfo {
   season: number;
   sport: string;
   teamId: string;
+  teamName?: string;
+  standing?: number;
   alertsEnabled: {
     pregame: boolean;
     scoring: boolean;
@@ -40,7 +42,19 @@ export class FantasyService {
   /**
    * Sync user's Sleeper data to database
    */
-  async syncUserSleeper(tgUserId: bigint, username: string): Promise<void> {
+  async syncUserSleeper(
+    tgUserId: bigint, 
+    username: string,
+    userInfo?: {
+      tgUsername?: string;
+      firstName?: string;
+      lastName?: string;
+      platform?: string;
+    }
+  ): Promise<Array<{
+    leagueName: string;
+    startTime: string;
+  }>> {
     try {
       // Get Sleeper user ID
       const sleeperUserId = await this.sleeperClient.getUserIdByUsername(username);
@@ -60,14 +74,23 @@ export class FantasyService {
 
       // Start transaction
       await prisma.$transaction(async (tx) => {
-        // Create or update user
+        // Create or update user with full info
         const user = await tx.user.upsert({
           where: { tgUserId },
-          update: {},
+          update: {
+            tgUsername: userInfo?.tgUsername,
+            firstName: userInfo?.firstName,
+            lastName: userInfo?.lastName,
+            updatedAt: new Date(),
+          },
           create: {
             tgUserId,
-            lang: 'uk',
-            tz: process.env.TIMEZONE || 'Europe/Brussels',
+            tgUsername: userInfo?.tgUsername,
+            firstName: userInfo?.firstName,
+            lastName: userInfo?.lastName,
+            lang: userInfo?.platform === 'discord' ? 'en' : 'uk',
+            tz: process.env.TIMEZONE || 'Europe/Kiev',
+            platform: userInfo?.platform || 'telegram',
           },
         });
 
@@ -160,6 +183,15 @@ export class FantasyService {
         leaguesCount: leagues.length,
       }, 'User Sleeper data synced successfully');
 
+      // Check for scheduled drafts and return league info
+      const scheduledDrafts = await this.checkForScheduledDrafts(leagues);
+      
+      // Return all leagues with draft info if available
+      return leagues.map(league => ({
+        leagueName: league.name,
+        startTime: scheduledDrafts.find(d => d.leagueName === league.name)?.startTime || 'Драфт завершено'
+      }));
+
     } catch (error) {
       logger.error({
         tgUserId: tgUserId.toString(),
@@ -168,6 +200,45 @@ export class FantasyService {
       }, 'Failed to sync user Sleeper data');
       throw error;
     }
+  }
+
+  /**
+   * Check for scheduled drafts in newly synced leagues
+   */
+  private async checkForScheduledDrafts(leagues: any[]): Promise<Array<{
+    leagueName: string;
+    startTime: string;
+  }>> {
+    const scheduledDrafts = [];
+
+    for (const league of leagues) {
+      try {
+        const drafts = await this.sleeperClient.getDrafts(league.league_id);
+        
+        for (const draft of drafts) {
+          // Check if draft is scheduled (not started yet)
+          if (draft.status === 'pre_draft' && draft.start_time) {
+            const startTime = new Date(draft.start_time);
+            const now = new Date();
+            
+            // Only include drafts that are in the future
+            if (startTime > now) {
+              scheduledDrafts.push({
+                leagueName: league.name,
+                startTime: startTime.toLocaleString('uk-UA'),
+              });
+            }
+          }
+        }
+      } catch (error) {
+        logger.error({
+          leagueId: league.league_id,
+          error: error instanceof Error ? error.message : error,
+        }, 'Error checking drafts for league');
+      }
+    }
+
+    return scheduledDrafts;
   }
 
   /**
@@ -194,22 +265,56 @@ export class FantasyService {
       return [];
     }
 
-    return user.leagues.map(userLeague => {
+    const result = [];
+    
+    for (const userLeague of user.leagues) {
       const alerts = user.alerts.find(alert => alert.leagueId === userLeague.leagueId);
       
-      return {
+      let teamName = `Team ${userLeague.teamId}`;
+      let standing: number | undefined;
+      
+      try {
+        // Get roster data to calculate standing and better team name
+        const rosters = await this.sleeperClient.getRosters(userLeague.league.providerLeagueId);
+        const userRoster = rosters.find(r => r.roster_id.toString() === userLeague.teamId);
+        
+        if (userRoster) {
+          // Calculate standing based on wins/losses
+          const sortedRosters = rosters.sort((a, b) => {
+            const aWinPct = a.settings.wins / Math.max(1, a.settings.wins + a.settings.losses + a.settings.ties);
+            const bWinPct = b.settings.wins / Math.max(1, b.settings.wins + b.settings.losses + b.settings.ties);
+            
+            if (aWinPct !== bWinPct) return bWinPct - aWinPct;
+            return b.settings.fpts - a.settings.fpts;
+          });
+          
+          standing = sortedRosters.findIndex(r => r.roster_id === userRoster.roster_id) + 1;
+          teamName = `${standing}. Team ${userLeague.teamId} (${userRoster.settings.wins}-${userRoster.settings.losses})`;
+        }
+      } catch (error) {
+        logger.error({
+          leagueId: userLeague.leagueId,
+          error: error instanceof Error ? error.message : error,
+        }, 'Failed to get team info for league');
+      }
+      
+      result.push({
         leagueId: userLeague.leagueId,
         name: userLeague.league.name,
         season: userLeague.league.season,
         sport: userLeague.league.sport,
         teamId: userLeague.teamId,
+        teamName,
+        standing,
         alertsEnabled: {
           pregame: alerts?.pregame || false,
           scoring: alerts?.scoring || false,
           waivers: alerts?.waivers || false,
         },
-      };
-    });
+      });
+    }
+    
+    return result;
   }
 
   /**
@@ -319,8 +424,8 @@ export class FantasyService {
         m => m.matchup_id === userMatchup.matchup_id && m.roster_id.toString() !== teamId
       );
 
-      // Get top players (simplified - just get player IDs with highest points)
-      const topPlayers = this.getTopPlayersFromMatchup(userMatchup);
+      // Get top players with their real names
+      const topPlayers = await this.getTopPlayersFromMatchup(userMatchup);
 
       // Generate reminders
       const reminders = [t('waiver_reminder'), t('lineup_reminder')];
@@ -348,19 +453,41 @@ export class FantasyService {
   /**
    * Get top players from matchup data
    */
-  private getTopPlayersFromMatchup(matchup: any): string[] {
+  private async getTopPlayersFromMatchup(matchup: any): Promise<string[]> {
     if (!matchup.players_points) {
       return [];
     }
 
-    // Sort players by points and take top 3
-    const playerEntries = Object.entries(matchup.players_points) as [string, number][];
-    const topPlayers = playerEntries
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([playerId, points]) => `${playerId}: ${Math.round(points * 100) / 100}pts`);
+    try {
+      // Get all NFL players data
+      const players = await this.sleeperClient.getPlayers('nfl');
 
-    return topPlayers;
+      // Sort players by points and take top 3
+      const playerEntries = Object.entries(matchup.players_points) as [string, number][];
+      const topPlayers = playerEntries
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+        .map(([playerId, points]) => {
+          const player = players[playerId];
+          const playerName = player 
+            ? `${player.first_name} ${player.last_name}` 
+            : `Player ${playerId}`;
+          return `${playerName}: ${Math.round(points * 100) / 100}pts`;
+        });
+
+      return topPlayers;
+    } catch (error) {
+      logger.error({
+        error: error instanceof Error ? error.message : error,
+      }, 'Failed to get player names for top players');
+      
+      // Fallback to player IDs if API fails
+      const playerEntries = Object.entries(matchup.players_points) as [string, number][];
+      return playerEntries
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+        .map(([playerId, points]) => `Player ${playerId}: ${Math.round(points * 100) / 100}pts`);
+    }
   }
 
   /**

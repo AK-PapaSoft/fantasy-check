@@ -55,6 +55,44 @@ export interface SleeperState {
   season_type: string;
   leg: number;
   previous_season: string;
+  season_start_date?: string;
+}
+
+export interface SleeperDraft {
+  draft_id: string;
+  league_id: string;
+  type: string;
+  status: string;
+  start_time: number; // Unix timestamp
+  sport: string;
+  settings: {
+    teams: number;
+    rounds: number;
+    pick_timer: number;
+    nomination_timer: number;
+    enforce_position_limits: number;
+    cpu_autopick: number;
+  };
+  season: string;
+  draft_order: Record<string, number>; // user_id -> draft position
+}
+
+export interface SleeperDraftPick {
+  pick_no: number;
+  player_id: string;
+  picked_by: string; // user_id
+  roster_id: number;
+  round: number;
+  draft_slot: number;
+  pick_in_round: number;
+  metadata: {
+    team: string;
+    status: string;
+    sport: string;
+    position: string;
+    player_id: string;
+    amount: string;
+  };
 }
 
 // Cache interface
@@ -383,5 +421,132 @@ export class SleeperClient {
     return {
       size: this.cache.size(),
     };
+  }
+
+  /**
+   * Get drafts for a league
+   */
+  async getDrafts(leagueId: string): Promise<SleeperDraft[]> {
+    const cacheKey = `drafts:${leagueId}`;
+    const cached = this.cache.get<SleeperDraft[]>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await this.retryRequest(
+        () => this.http.get<SleeperDraft[]>(`/league/${leagueId}/drafts`)
+      );
+
+      const drafts = response.data || [];
+      this.cache.set(cacheKey, drafts, 60000); // 1 minute cache for draft data
+      return drafts;
+    } catch (error) {
+      logger.error({ leagueId }, 'Failed to get league drafts');
+      throw error;
+    }
+  }
+
+  /**
+   * Get draft details by draft ID
+   */
+  async getDraft(draftId: string): Promise<SleeperDraft | null> {
+    const cacheKey = `draft:${draftId}`;
+    const cached = this.cache.get<SleeperDraft>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await this.retryRequest(
+        () => this.http.get<SleeperDraft>(`/draft/${draftId}`)
+      );
+
+      if (response.data) {
+        this.cache.set(cacheKey, response.data, 60000); // 1 minute cache
+        return response.data;
+      }
+      
+      return null;
+    } catch (error) {
+      if ((error as AxiosError).response?.status === 404) {
+        return null;
+      }
+      logger.error({ draftId }, 'Failed to get draft details');
+      throw error;
+    }
+  }
+
+  /**
+   * Get draft picks for a draft
+   */
+  async getDraftPicks(draftId: string): Promise<SleeperDraftPick[]> {
+    const cacheKey = `draft-picks:${draftId}`;
+    const cached = this.cache.get<SleeperDraftPick[]>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await this.retryRequest(
+        () => this.http.get<SleeperDraftPick[]>(`/draft/${draftId}/picks`)
+      );
+
+      const picks = response.data || [];
+      this.cache.set(cacheKey, picks, 30000); // 30 seconds cache for active draft picks
+      return picks;
+    } catch (error) {
+      logger.error({ draftId }, 'Failed to get draft picks');
+      throw error;
+    }
+  }
+
+  /**
+   * Get all NFL players data
+   */
+  async getPlayers(sport: string = 'nfl'): Promise<Record<string, any>> {
+    const cacheKey = `players:${sport}`;
+    const cached = this.cache.get<Record<string, any>>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const response = await this.retryRequest(
+        () => this.http.get<Record<string, any>>(`/players/${sport}`)
+      );
+
+      const players = response.data || {};
+      this.cache.set(cacheKey, players, 3600000); // 1 hour cache for player data
+      return players;
+    } catch (error) {
+      logger.error({ sport }, 'Failed to get players data');
+      throw error;
+    }
+  }
+
+  /**
+   * Get NFL schedule for a specific week (simplified)
+   * Note: Sleeper doesn't have a direct schedule API, so this is a mock implementation
+   * In a real implementation, you'd need to use another API like ESPN or NFL API
+   */
+  async getNFLSchedule(week: number): Promise<Array<{
+    home: string;
+    away: string;
+    startTime: string;
+  }>> {
+    // This is a simplified mock implementation
+    // In production, you would integrate with an actual NFL schedule API
+    const mockSchedule = [
+      { home: 'KC', away: 'LV', startTime: new Date().toISOString() },
+      { home: 'BUF', away: 'MIA', startTime: new Date().toISOString() },
+      // Add more games as needed
+    ];
+    
+    return mockSchedule;
   }
 }
