@@ -46,12 +46,12 @@ export default function Home() {
                   <rect x="26" y="-22" width="8" height="32" rx="4" fill="#ffffff"/>
                 </g>
               </svg>
-              Fantasy Gather
+              Fantasy Check
             </h1>
             <p className="subtitle">Розумний бот для Sleeper NFL Fantasy футболу</p>
-            <div className="status">✅ Бот працює на Vercel!</div>
+            <div className="status">✅ Бот працює на https://fantasy-check.vercel.app/</div>
             <br/>
-            <a href="https://t.me/FantasyGatherBot" className="telegram-link" target="_blank" rel="noopener noreferrer">
+            <a href="https://t.me/FantasyCheckBot" className="telegram-link" target="_blank" rel="noopener noreferrer">
               📱 Відкрити в Telegram
             </a>
           </div>
@@ -162,12 +162,12 @@ export default function Home() {
                   <rect x="26" y="-22" width="8" height="32" rx="4" fill="#ffffff"/>
                 </g>
               </svg>
-              Fantasy Gather
+              Fantasy Check
             </h1>
             <p className="subtitle">Smart bot for Sleeper NFL Fantasy Football</p>
-            <div className="status">✅ Bot is running on Vercel!</div>
+            <div className="status">✅ Bot is running on https://fantasy-check.vercel.app/</div>
             <br/>
-            <a href="https://t.me/FantasyGatherBot" className="telegram-link" target="_blank" rel="noopener noreferrer">
+            <a href="https://t.me/FantasyCheckBot" className="telegram-link" target="_blank" rel="noopener noreferrer">
               📱 Open in Telegram
             </a>
           </div>
