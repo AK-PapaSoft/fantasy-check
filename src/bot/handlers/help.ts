@@ -13,7 +13,7 @@ export async function handleHelp(ctx: Context): Promise<void> {
 
     logger.info({ userId }, 'User requested help');
 
-    await ctx.reply(t('help'));
+    await ctx.reply('🔥 DEBUGGING VERSION - Help command working! Deployment timestamp: ' + new Date().toISOString());
 
   } catch (error) {
     logger.error({
