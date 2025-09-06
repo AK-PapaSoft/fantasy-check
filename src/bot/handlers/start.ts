@@ -2,6 +2,7 @@ import { Context } from 'telegraf';
 import { t } from '../../i18n';
 import { prisma } from '../../db';
 import { getUserLanguage } from '../utils/user-context';
+import { supabaseService } from '../../services/supabase-service';
 import pino from 'pino';
 
 const logger = pino({ name: 'bot:start' });
@@ -19,32 +20,63 @@ export async function handleStart(ctx: Context): Promise<void> {
       firstName: ctx.from?.first_name,
     }, 'User started bot');
 
-    // Check if this is a new user and create/update with Telegram info
-    const existingUser = await prisma.user.findUnique({
-      where: { tgUserId: BigInt(userId) },
-    });
+    // Try Prisma first, fallback to Supabase
+    let existingUser;
+    let isNewUser = true;
+    
+    try {
+      // Check if this is a new user and create/update with Telegram info
+      existingUser = await prisma.user.findUnique({
+        where: { tgUserId: BigInt(userId) },
+      });
 
-    const isNewUser = !existingUser;
+      isNewUser = !existingUser;
 
-    // Update or create user with full Telegram info
-    await prisma.user.upsert({
-      where: { tgUserId: BigInt(userId) },
-      update: {
-        tgUsername: ctx.from?.username,
-        firstName: ctx.from?.first_name,
-        lastName: ctx.from?.last_name,
-        updatedAt: new Date(),
-      },
-      create: {
-        tgUserId: BigInt(userId),
-        tgUsername: ctx.from?.username,
-        firstName: ctx.from?.first_name,
-        lastName: ctx.from?.last_name,
-        lang: 'uk', // Ukrainian default for Telegram
-        tz: 'Europe/Kiev', // Kiev timezone as default
-        platform: 'telegram',
-      },
-    });
+      // Update or create user with full Telegram info
+      await prisma.user.upsert({
+        where: { tgUserId: BigInt(userId) },
+        update: {
+          tgUsername: ctx.from?.username,
+          firstName: ctx.from?.first_name,
+          lastName: ctx.from?.last_name,
+          updatedAt: new Date(),
+        },
+        create: {
+          tgUserId: BigInt(userId),
+          tgUsername: ctx.from?.username,
+          firstName: ctx.from?.first_name,
+          lastName: ctx.from?.last_name,
+          lang: 'uk', // Ukrainian default for Telegram
+          tz: 'Europe/Kiev', // Kiev timezone as default
+          platform: 'telegram',
+        },
+      });
+      
+      logger.info({ userId }, 'User upserted successfully via Prisma');
+    } catch (prismaError) {
+      logger.warn({ userId, error: prismaError }, 'Prisma failed, trying Supabase fallback');
+      
+      try {
+        // Fallback to Supabase
+        existingUser = await supabaseService.getUserByTgId(BigInt(userId));
+        isNewUser = !existingUser;
+        
+        await supabaseService.upsertUser({
+          tgUserId: BigInt(userId),
+          tgUsername: ctx.from?.username,
+          firstName: ctx.from?.first_name,
+          lastName: ctx.from?.last_name,
+          lang: 'uk',
+          tz: 'Europe/Kiev',
+          platform: 'telegram'
+        });
+        
+        logger.info({ userId }, 'User upserted successfully via Supabase fallback');
+      } catch (supabaseError) {
+        logger.error({ userId, prismaError, supabaseError }, 'Both Prisma and Supabase failed');
+        throw supabaseError;
+      }
+    }
 
     // Get user language and send appropriate greeting
     const userLang = await getUserLanguage(BigInt(userId));

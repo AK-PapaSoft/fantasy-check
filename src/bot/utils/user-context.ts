@@ -1,4 +1,5 @@
 import { Language } from '../../i18n';
+import { supabaseService } from '../../services/supabase-service';
 
 /**
  * Get user's preferred language from database
@@ -24,10 +25,21 @@ export async function getUserLanguage(userId: bigint): Promise<Language> {
     } finally {
       await prisma.$disconnect();
     }
-  } catch (error) {
-    // Default based on user ID pattern if database error
-    const platform = getUserPlatform(userId);
-    return getDefaultLanguageForPlatform(platform);
+  } catch (prismaError) {
+    // Try Supabase fallback
+    try {
+      const user = await supabaseService.getUserByTgId(userId);
+      if (user?.lang) {
+        return user.lang as Language;
+      }
+      
+      const platform = (user?.platform as 'telegram' | 'discord') || getUserPlatform(userId);
+      return getDefaultLanguageForPlatform(platform);
+    } catch (supabaseError) {
+      // Default based on user ID pattern if both database connections fail
+      const platform = getUserPlatform(userId);
+      return getDefaultLanguageForPlatform(platform);
+    }
   }
 }
 
