@@ -36,6 +36,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.0",
+    "@supabase/supabase-js": "^2.57.2",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "axios": "^1.6.2",

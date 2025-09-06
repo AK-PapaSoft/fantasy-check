@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { connectDatabase, checkDatabaseHealth, prisma } from '../../../src/db'
 import { handleStart } from '../../../src/bot/handlers/start'
 import { t } from '../../../src/i18n'
+import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
 
 const logger = pino({ name: 'test-bot' })
@@ -62,6 +63,39 @@ export async function GET() {
       }
     } catch (error) {
       results.tests.simplePrisma = {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
+      }
+    }
+
+    // Test 2c: Supabase Client test
+    try {
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        )
+        
+        const { data, error, count } = await supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+        
+        if (error) throw error
+        
+        results.tests.supabaseClient = {
+          connected: true,
+          userCount: count,
+          message: 'Supabase client connection successful'
+        }
+      } else {
+        results.tests.supabaseClient = {
+          connected: false,
+          error: 'Missing Supabase environment variables'
+        }
+      }
+    } catch (error) {
+      results.tests.supabaseClient = {
         connected: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
