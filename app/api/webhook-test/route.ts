@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     
     // Simulate a simple /start command
     const mockUserId = 12345
-    const result = {
+    const result: any = {
       timestamp: new Date().toISOString(),
       userId: mockUserId,
       tests: {}
