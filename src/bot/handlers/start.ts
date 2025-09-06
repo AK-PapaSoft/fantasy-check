@@ -23,7 +23,7 @@ export async function handleStart(ctx: Context): Promise<void> {
     // For now, skip database operations and just send greeting
     // This will help us isolate if the issue is in DB or elsewhere
     try {
-      const greeting = t('greet_sporthub', {}, 'uk');
+      const greeting = t('greet_sporthub');
       await ctx.reply(greeting);
       logger.info({ userId }, 'Greeting sent successfully');
     } catch (greetingError) {
