@@ -51,7 +51,10 @@ async function initializeBot() {
     bot = new Telegraf(telegramToken)
     
     // Set up handlers
-    bot.command('start', handleStart)
+    bot.command('start', async (ctx) => {
+      await ctx.reply('DEBUG: start command received at ' + new Date().toISOString())
+    })
+    bot.command('begin', handleStart) // Test with different command
     bot.command('help', handleHelp)
     bot.command('link_sleeper', handleLinkSleeper)
     bot.command('leagues', handleLeagues)
