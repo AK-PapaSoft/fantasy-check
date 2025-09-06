@@ -1,142 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { config } from 'dotenv'
-import { Telegraf } from 'telegraf'
-import { handleStart } from '../../../src/bot/handlers/start'
-import { handleHelp } from '../../../src/bot/handlers/help'
-import { handleLinkSleeper } from '../../../src/bot/handlers/link-sleeper'
-import { handleLeagues, handleLeagueCallback } from '../../../src/bot/handlers/leagues'
-import { handleToday } from '../../../src/bot/handlers/today'
-import { handleTimezone, handleTimezoneInput } from '../../../src/bot/handlers/timezone'
-import { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } from '../../../src/bot/handlers/feedback'
-import { handleLanguage } from '../../../src/bot/handlers/language'
-import { connectDatabase } from '../../../src/db'
-import { t } from '../../../src/i18n'
-import pino from 'pino'
-
-// Load environment variables
-config()
-
-const logger = pino({ 
-  name: 'webhook-handler-v3-' + Date.now(), // Force rebuild with timestamp
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-})
-
-let bot: Telegraf | undefined
-let isInitialized = false
-
-async function initializeBot() {
-  if (isInitialized) return bot
-
-  try {
-    logger.info('Initializing Telegram bot...')
-
-    // Validate required environment variables
-    const required = ['TELEGRAM_TOKEN']
-    const missing = required.filter(key => !process.env[key])
-    
-    if (missing.length > 0) {
-      throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
-    }
-
-    // Try to connect to database
-    try {
-      await connectDatabase()
-      logger.info('Database connected successfully')
-    } catch (error) {
-      logger.warn('Database connection failed:', error)
-    }
-
-    // Initialize Telegraf bot directly
-    const telegramToken = process.env.TELEGRAM_TOKEN!
-    bot = new Telegraf(telegramToken)
-    
-    // Set up handlers
-    bot.command('start', async (ctx) => {
-      await ctx.reply('DEBUG: start command received at ' + new Date().toISOString())
-    })
-    bot.command('begin', handleStart) // Test with different command
-    bot.command('help', handleHelp)
-    bot.command('link_sleeper', handleLinkSleeper)
-    bot.command('leagues', handleLeagues)
-    bot.command('today', handleToday)
-    bot.command('timezone', handleTimezone)
-    bot.command('feedback', handleFeedback)
-    bot.command('lang', handleLanguage)
-
-    // Callback query handlers (inline buttons)
-    bot.on('callback_query', handleLeagueCallback)
-
-    // Text message handler (for timezone input and feedback)
-    bot.on('text', async (ctx) => {
-      const userId = ctx.from?.id
-      
-      // Check if user is in feedback mode first
-      if (userId && isUserInFeedbackMode(userId)) {
-        await handleFeedbackMessage(ctx)
-        return
-      }
-      
-      // Handle timezone input (only processes if user is in timezone flow)
-      await handleTimezoneInput(ctx)
-      
-      // Note: Don't send help for every text message as it might be part of a flow
-    })
-    
-    // Handle other message types
-    bot.on('message', async (ctx) => {
-      // This catches other types of messages that aren't handled above
-      await ctx.reply(t('help'))
-    })
-
-    // Error handling
-    bot.catch(async (err, ctx) => {
-      logger.error({
-        error: err,
-        userId: ctx.from?.id,
-        chatId: ctx.chat?.id,
-        updateType: ctx.updateType,
-      }, 'Bot error occurred')
-
-      try {
-        await ctx.reply(t('error_generic'))
-      } catch (replyError) {
-        logger.error('Failed to send error message to user:', replyError)
-      }
-    })
-
-    isInitialized = true
-    logger.info('Bot initialized successfully')
-    return bot
-  } catch (error) {
-    logger.error('Failed to initialize bot:', error)
-    throw error
-  }
-}
 
 export async function POST(request: NextRequest) {
-  console.log('=== WEBHOOK CALLED ===', new Date().toISOString())
-  
   try {
-    const body = await request.json()
-    console.log('=== WEBHOOK BODY ===', JSON.stringify(body, null, 2))
+    console.log('=== WEBHOOK RECEIVED ===', new Date().toISOString())
     
-    const bot = await initializeBot()
+    const body: any = await request.json()
+    console.log('=== BODY ===', JSON.stringify(body, null, 2))
     
-    if (!bot) {
-      console.log('=== BOT NOT INITIALIZED ===')
-      return NextResponse.json({ error: 'Bot not initialized' }, { status: 500 })
+    // Check for commands
+    const message = body?.message
+    const text = message?.text
+    const chatId = message?.chat?.id
+    
+    if (!text || !chatId) {
+      console.log('=== NO TEXT OR CHAT_ID ===')
+      return NextResponse.json({ ok: true })
     }
+    
+    console.log('=== COMMAND ===', text)
+    
+    let responseText = ''
+    
+    if (text === '/start') {
+      responseText = '🚀 START працює! Fantasy Check Bot v1.0 - ' + new Date().toISOString()
+    } else if (text === '/help') {
+      responseText = `🔧 **Доступні команди:**
+• /start - Почати роботу з ботом  
+• /help - Показати цю довідку
+• /link_sleeper <нік> - Підключити Sleeper
 
-    console.log('=== PROCESSING UPDATE ===')
-    await bot.handleUpdate(body as any)
-    console.log('=== UPDATE PROCESSED ===')
+Bot працює на: https://fantasy-check.vercel.app/`
+    } else {
+      console.log('=== UNKNOWN COMMAND ===')
+      return NextResponse.json({ ok: true })
+    }
+    
+    // Send via Telegram API
+    const telegramToken = process.env.TELEGRAM_TOKEN
+    if (!telegramToken) {
+      throw new Error('TELEGRAM_TOKEN not found')
+    }
+    
+    const telegramUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`
+    
+    console.log('=== SENDING RESPONSE ===', responseText.substring(0, 100))
+    
+    const response = await fetch(telegramUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: responseText,
+        parse_mode: 'Markdown'
+      }),
+    })
+    
+    const result = await response.json()
+    console.log('=== TELEGRAM RESPONSE ===', result)
     
     return NextResponse.json({ ok: true })
+    
   } catch (error) {
-    logger.error('Webhook handler error:', error)
+    console.error('=== WEBHOOK ERROR ===', error)
     return NextResponse.json({ 
-      error: 'Internal server error', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }
