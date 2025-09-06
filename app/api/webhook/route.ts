@@ -114,17 +114,22 @@ async function initializeBot() {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('=== WEBHOOK CALLED ===', new Date().toISOString())
+  
   try {
+    const body = await request.json()
+    console.log('=== WEBHOOK BODY ===', JSON.stringify(body, null, 2))
+    
     const bot = await initializeBot()
     
     if (!bot) {
+      console.log('=== BOT NOT INITIALIZED ===')
       return NextResponse.json({ error: 'Bot not initialized' }, { status: 500 })
     }
 
-    logger.info('Processing Telegram webhook...')
-    
-    const body = await request.json()
+    console.log('=== PROCESSING UPDATE ===')
     await bot.handleUpdate(body as any)
+    console.log('=== UPDATE PROCESSED ===')
     
     return NextResponse.json({ ok: true })
   } catch (error) {
