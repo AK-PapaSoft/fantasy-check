@@ -1,28 +1,10 @@
 {
   "version": 2,
   "buildCommand": "npm run vercel-build",
-  "rewrites": [
-    {
-      "source": "/health",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ],
   "crons": [
     {
       "path": "/api/cron?job=daily-digest",
       "schedule": "0 12 * * *"
     }
-  ],
-  "functions": {
-    "api/index.ts": {
-      "maxDuration": 30
-    },
-    "api/cron.ts": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
