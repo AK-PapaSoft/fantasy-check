@@ -26,10 +26,12 @@ export class SupabaseService {
     platform?: string
   }) {
     try {
+      const tgUserIdNum = Number(userData.tgUserId) // Convert bigint to number
+      
       const { data, error } = await supabase
         .from('users')
         .upsert({
-          tgUserId: userData.tgUserId.toString(), // Convert bigint to string for JSON
+          tgUserId: tgUserIdNum, // Use number instead of string
           tgUsername: userData.tgUsername,
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -57,10 +59,12 @@ export class SupabaseService {
    */
   async getUserByTgId(tgUserId: bigint) {
     try {
+      const tgUserIdNum = Number(tgUserId) // Convert bigint to number
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('tgUserId', tgUserId.toString())
+        .eq('tgUserId', tgUserIdNum)
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
@@ -79,13 +83,15 @@ export class SupabaseService {
    */
   async updateUserTimezone(tgUserId: bigint, timezone: string) {
     try {
+      const tgUserIdNum = Number(tgUserId) // Convert bigint to number
+      
       const { error } = await supabase
         .from('users')
         .update({ 
           tz: timezone,
           updatedAt: new Date().toISOString()
         })
-        .eq('tgUserId', tgUserId.toString())
+        .eq('tgUserId', tgUserIdNum)
 
       if (error) throw error
       

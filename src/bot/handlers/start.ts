@@ -73,7 +73,12 @@ export async function handleStart(ctx: Context): Promise<void> {
         
         logger.info({ userId }, 'User upserted successfully via Supabase fallback');
       } catch (supabaseError) {
-        logger.error({ userId, prismaError, supabaseError }, 'Both Prisma and Supabase failed');
+        logger.error({ 
+          userId, 
+          prismaError: prismaError instanceof Error ? prismaError.message : prismaError,
+          supabaseError: supabaseError instanceof Error ? supabaseError.message : supabaseError,
+          supabaseStack: supabaseError instanceof Error ? supabaseError.stack : undefined
+        }, 'Both Prisma and Supabase failed');
         throw supabaseError;
       }
     }
