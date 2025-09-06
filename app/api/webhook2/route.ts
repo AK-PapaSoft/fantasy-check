@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body: any = await request.json()
     
     // Log the incoming request
     console.log('=== WEBHOOK2 RECEIVED ===', JSON.stringify(body, null, 2))
