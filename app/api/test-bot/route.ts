@@ -38,30 +38,33 @@ export async function GET() {
       }
     }
 
-    // Test 2b: Database connection (pooled)
+    // Test 2b: Simple connection test
     try {
       const { PrismaClient } = require('@prisma/client')
-      const pooledPrisma = new PrismaClient({
+      const testPrisma = new PrismaClient({
+        log: ['error', 'warn'],
         datasources: {
           db: {
-            url: process.env.DATABASE_URL_POOLED
+            url: process.env.DATABASE_URL
           }
         }
       })
       
-      const userCount = await pooledPrisma.user.count()
-      await pooledPrisma.$disconnect()
+      // Simple connection test
+      await testPrisma.$queryRaw`SELECT NOW() as current_time`
+      const userCount = await testPrisma.user.count()
+      await testPrisma.$disconnect()
       
-      results.tests.databasePooled = {
+      results.tests.simplePrisma = {
         connected: true,
         userCount,
-        connectionUrl: process.env.DATABASE_URL_POOLED ? 'Set' : 'Not set'
+        message: 'Direct Prisma connection successful'
       }
     } catch (error) {
-      results.tests.databasePooled = {
+      results.tests.simplePrisma = {
         connected: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        connectionUrl: process.env.DATABASE_URL_POOLED ? 'Set' : 'Not set'
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
       }
     }
 
