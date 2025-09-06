@@ -1,8 +1,5 @@
 import { Context } from 'telegraf';
 import { t } from '../../i18n';
-import { prisma } from '../../db';
-import { getUserLanguage } from '../utils/user-context';
-import { supabaseService } from '../../services/supabase-service';
 import pino from 'pino';
 
 const logger = pino({ name: 'bot:start' });
