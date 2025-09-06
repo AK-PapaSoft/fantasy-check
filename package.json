@@ -4,9 +4,10 @@
   "description": "Production-ready Telegram and Discord bot for NFL fantasy with Sleeper integration",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "vercel-build": "next build",
+    "vercel-build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "bot:dev": "tsx watch src/index.ts",
     "bot:build": "tsc --project tsconfig.json",
     "bot:start": "node dist/index.js"
