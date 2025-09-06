@@ -5,6 +5,7 @@ export async function GET() {
     status: 'WORKING',
     timestamp: new Date().toISOString(),
     domain: 'fantasy-check.vercel.app',
-    message: 'Deployment test successful!'
+    framework: 'Next.js (Framework Preset Applied)',
+    message: 'Deployment with correct framework settings!'
   })
 }
