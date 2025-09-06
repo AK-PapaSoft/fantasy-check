@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "vercel-build": "prisma generate && next build",
+    "vercel-build": "next build",
     "legacy:start": "node dist/index.js",
     "legacy:dev": "tsx watch src/index.ts",
     "legacy:build": "tsc",
