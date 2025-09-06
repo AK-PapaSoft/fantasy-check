@@ -1,65 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Telegraf } from 'telegraf'
 
 export async function POST(request: NextRequest) {
   try {
     console.log('=== WEBHOOK RECEIVED ===', new Date().toISOString())
     
-    const body: any = await request.json()
-    console.log('=== BODY ===', JSON.stringify(body, null, 2))
-    
-    // Check for commands
-    const message = body?.message
-    const text = message?.text
-    const chatId = message?.chat?.id
-    
-    if (!text || !chatId) {
-      console.log('=== NO TEXT OR CHAT_ID ===')
-      return NextResponse.json({ ok: true })
-    }
-    
-    console.log('=== COMMAND ===', text)
-    
-    let responseText = ''
-    
-    if (text === '/start') {
-      responseText = '🚀 Fantasy Check Bot працює! v2.0 - ' + new Date().toISOString()
-    } else if (text === '/help') {
-      responseText = `🔧 **Доступні команди:**
-• /start - Почати роботу з ботом  
-• /help - Показати цю довідку
-• /link_sleeper <нік> - Підключити Sleeper
-
-Bot працює на: https://fantasy-check.vercel.app/`
-    } else {
-      console.log('=== UNKNOWN COMMAND ===')
-      return NextResponse.json({ ok: true })
-    }
-    
-    // Send via Telegram API
     const telegramToken = process.env.TELEGRAM_TOKEN
     if (!telegramToken) {
       console.log('=== NO TELEGRAM_TOKEN ===')
       return NextResponse.json({ ok: true, message: 'No token configured' })
     }
+
+    // Initialize Telegraf bot
+    const bot = new Telegraf(telegramToken)
     
-    const telegramUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`
+    // Import handlers
+    const { handleStart } = await import('../../../src/bot/handlers/start')
+    const { handleHelp } = await import('../../../src/bot/handlers/help')
+    const { handleLinkSleeper } = await import('../../../src/bot/handlers/link-sleeper')
+    const { handleLeagues, handleLeagueCallback } = await import('../../../src/bot/handlers/leagues')
+    const { handleToday } = await import('../../../src/bot/handlers/today')
+    const { handleTimezone, handleTimezoneInput } = await import('../../../src/bot/handlers/timezone')
+    const { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } = await import('../../../src/bot/handlers/feedback')
+    const { handleLanguage } = await import('../../../src/bot/handlers/language')
+    const { t } = await import('../../../src/i18n')
     
-    console.log('=== SENDING RESPONSE ===', responseText.substring(0, 100))
-    
-    const response = await fetch(telegramUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: responseText,
-        parse_mode: 'Markdown'
-      }),
+    // Setup command handlers
+    bot.command('start', handleStart)
+    bot.command('help', handleHelp)
+    bot.command('link_sleeper', handleLinkSleeper)
+    bot.command('leagues', handleLeagues)
+    bot.command('today', handleToday)
+    bot.command('timezone', handleTimezone)
+    bot.command('feedback', handleFeedback)
+    bot.command('lang', handleLanguage)
+
+    // Setup callback query handler for inline buttons
+    bot.on('callback_query', handleLeagueCallback)
+
+    // Setup text message handler
+    bot.on('text', async (ctx) => {
+      const userId = ctx.from?.id
+      
+      if (userId && isUserInFeedbackMode(userId)) {
+        await handleFeedbackMessage(ctx)
+        return
+      }
+      
+      await handleTimezoneInput(ctx)
+    })
+
+    // Handle unknown commands
+    bot.on('message', async (ctx) => {
+      if (ctx.message && 'text' in ctx.message && ctx.message.text.startsWith('/')) {
+        await ctx.reply(t('error_generic') + '\n\nВикористай /help для списку команд.')
+      }
+    })
+
+    // Error handling
+    bot.catch(async (err, ctx) => {
+      console.error('=== BOT ERROR ===', err)
+      try {
+        await ctx.reply(t('error_generic'))
+      } catch (replyError) {
+        console.error('Failed to send error message:', replyError)
+      }
     })
     
-    const result = await response.json()
-    console.log('=== TELEGRAM RESPONSE ===', result)
+    // Get request body
+    const body = await request.json() as any
+    console.log('=== PROCESSING UPDATE ===', JSON.stringify(body, null, 2))
+    
+    // Process the update
+    await bot.handleUpdate(body)
     
     return NextResponse.json({ ok: true })
     
