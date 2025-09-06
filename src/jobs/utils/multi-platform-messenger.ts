@@ -1,5 +1,4 @@
 import { TelegramBot } from '../../bot';
-import { DiscordBot } from '../../discord-bot';
 import { getUserLanguage } from '../../bot/utils/user-context';
 import { t, TranslationKey } from '../../i18n';
 import pino from 'pino';
@@ -8,8 +7,7 @@ const logger = pino({ name: 'multi-platform-messenger' });
 
 export class MultiPlatformMessenger {
   constructor(
-    private telegramBot: TelegramBot,
-    private discordBot?: DiscordBot
+    private telegramBot: TelegramBot
   ) {}
 
   /**
@@ -30,13 +28,11 @@ export class MultiPlatformMessenger {
       
       if (platform === 'telegram') {
         await this.telegramBot.sendMessage(Number(userId), message, options);
-      } else if (platform === 'discord' && this.discordBot) {
-        await this.discordBot.sendMessage(userId.toString(), message, options);
       } else {
         logger.warn({
           userId: userId.toString(),
           platform,
-          discordBotAvailable: !!this.discordBot,
+          discordBotAvailable: false,
         }, 'Cannot send message - platform not supported or bot not available');
       }
     } catch (error) {
@@ -62,13 +58,11 @@ export class MultiPlatformMessenger {
       
       if (platform === 'telegram') {
         await this.telegramBot.sendMessage(Number(userId), message, options);
-      } else if (platform === 'discord' && this.discordBot) {
-        await this.discordBot.sendMessage(userId.toString(), message, options);
       } else {
         logger.warn({
           userId: userId.toString(),
           platform,
-          discordBotAvailable: !!this.discordBot,
+          discordBotAvailable: false,
         }, 'Cannot send raw message - platform not supported or bot not available');
       }
     } catch (error) {

@@ -1,7 +1,6 @@
 import * as cron from 'node-cron';
 import { FantasyService } from '../services/fantasy-service';
 import { TelegramBot } from '../bot';
-import { DiscordBot } from '../discord-bot';
 import { isHourInTimezone } from '../utils/timezone';
 import { t } from '../i18n';
 import pino from 'pino';
@@ -11,13 +10,11 @@ const logger = pino({ name: 'jobs:daily-digest' });
 export class DailyDigestJob {
   private fantasyService: FantasyService;
   private telegramBot: TelegramBot;
-  private discordBot?: DiscordBot;
   private task: cron.ScheduledTask | null = null;
 
-  constructor(telegramBot: TelegramBot, discordBot?: DiscordBot) {
+  constructor(telegramBot: TelegramBot) {
     this.fantasyService = new FantasyService();
     this.telegramBot = telegramBot;
-    this.discordBot = discordBot;
   }
 
   /**

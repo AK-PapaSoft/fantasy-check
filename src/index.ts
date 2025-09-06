@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
 import { TelegramBot } from './bot';
-import { DiscordBot } from './discord-bot';
 import { HttpServer } from './http';
 import { JobManager } from './jobs';
 import { connectDatabase, disconnectDatabase } from './db';
@@ -16,7 +15,6 @@ const logger = pino({
 
 class Application {
   private telegramBot?: TelegramBot;
-  private discordBot?: DiscordBot;
   private httpServer?: HttpServer;
   private jobManager?: JobManager;
   private isShuttingDown = false;
@@ -84,21 +82,8 @@ class Application {
         await this.telegramBot.startPolling();
       }
 
-      // Initialize Discord bot if token provided
-      const discordToken = process.env.DISCORD_TOKEN;
-      const discordClientId = process.env.DISCORD_CLIENT_ID;
-      
-      if (discordToken && discordClientId) {
-        this.discordBot = new DiscordBot(discordToken, discordClientId);
-        await this.discordBot.registerCommands();
-        await this.discordBot.start();
-        logger.info('Discord bot started successfully');
-      } else {
-        logger.info('Discord bot disabled (no token/client ID provided)');
-      }
-
       // Initialize and start cron jobs
-      this.jobManager = new JobManager(this.telegramBot, this.discordBot);
+      this.jobManager = new JobManager(this.telegramBot);
       this.jobManager.start();
 
       // Setup graceful shutdown
@@ -212,10 +197,6 @@ class Application {
       shutdownPromises.push(this.telegramBot.stop());
     }
 
-    // Stop Discord bot
-    if (this.discordBot) {
-      shutdownPromises.push(this.discordBot.stop());
-    }
 
     // Wait for graceful shutdowns
     try {

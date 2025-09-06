@@ -1,5 +1,4 @@
 import { TelegramBot } from '../bot';
-import { DiscordBot } from '../discord-bot';
 import { DailyDigestJob } from './daily-digest';
 import { CacheRefreshJob } from './cache-refresh';
 import { DraftNotificationsJob } from './draft-notifications';
@@ -15,15 +14,12 @@ export class JobManager {
   private intelligentNotificationsJob: IntelligentNotificationsJob;
   private isRunning: boolean = false;
   private telegramBot: TelegramBot;
-  private discordBot?: DiscordBot;
-
-  constructor(telegramBot: TelegramBot, discordBot?: DiscordBot) {
+  constructor(telegramBot: TelegramBot) {
     this.telegramBot = telegramBot;
-    this.discordBot = discordBot;
-    this.dailyDigestJob = new DailyDigestJob(telegramBot, discordBot);
+    this.dailyDigestJob = new DailyDigestJob(telegramBot);
     this.cacheRefreshJob = new CacheRefreshJob();
-    this.draftNotificationsJob = new DraftNotificationsJob(telegramBot, discordBot);
-    this.intelligentNotificationsJob = new IntelligentNotificationsJob(telegramBot, discordBot);
+    this.draftNotificationsJob = new DraftNotificationsJob(telegramBot);
+    this.intelligentNotificationsJob = new IntelligentNotificationsJob(telegramBot);
   }
 
   /**

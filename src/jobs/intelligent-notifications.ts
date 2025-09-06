@@ -1,6 +1,5 @@
 import * as cron from 'node-cron';
 import { TelegramBot } from '../bot';
-import { DiscordBot } from '../discord-bot';
 import { SleeperClient, SleeperMatchup, SleeperRoster } from '../services/sleeper-client';
 import { connectDatabase } from '../db';
 import { t } from '../i18n';
@@ -38,8 +37,8 @@ export class IntelligentNotificationsJob {
   private messenger: MultiPlatformMessenger;
   private isRunning: boolean = false;
 
-  constructor(telegramBot: TelegramBot, discordBot?: DiscordBot) {
-    this.messenger = new MultiPlatformMessenger(telegramBot, discordBot);
+  constructor(telegramBot: TelegramBot) {
+    this.messenger = new MultiPlatformMessenger(telegramBot);
     this.sleeper = new SleeperClient();
   }
 
