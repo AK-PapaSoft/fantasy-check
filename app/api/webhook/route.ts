@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     let responseText = ''
     
     if (text === '/start') {
-      responseText = '🚀 START працює! Fantasy Check Bot v1.0 - ' + new Date().toISOString()
+      responseText = '🚀 Fantasy Check Bot працює! v2.0 - ' + new Date().toISOString()
     } else if (text === '/help') {
       responseText = `🔧 **Доступні команди:**
 • /start - Почати роботу з ботом  
@@ -38,7 +38,8 @@ Bot працює на: https://fantasy-check.vercel.app/`
     // Send via Telegram API
     const telegramToken = process.env.TELEGRAM_TOKEN
     if (!telegramToken) {
-      throw new Error('TELEGRAM_TOKEN not found')
+      console.log('=== NO TELEGRAM_TOKEN ===')
+      return NextResponse.json({ ok: true, message: 'No token configured' })
     }
     
     const telegramUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`
