@@ -7,38 +7,13 @@ const logger = pino({ name: 'bot:start' });
 export async function handleStart(ctx: Context): Promise<void> {
   try {
     const userId = ctx.from?.id;
-    if (!userId) {
-      return;
-    }
+    logger.info({ userId }, 'START HANDLER CALLED');
 
-    logger.info({
-      userId,
-      username: ctx.from?.username,
-      firstName: ctx.from?.first_name,
-    }, 'User started bot');
-
-    // For now, skip database operations and just send greeting
-    // This will help us isolate if the issue is in DB or elsewhere
-    try {
-      const greeting = t('help'); // Use same key as working help command
-      await ctx.reply(greeting);
-      logger.info({ userId }, 'Greeting sent successfully');
-    } catch (greetingError) {
-      logger.error({ userId, error: greetingError }, 'Failed to send greeting');
-      throw greetingError;
-    }
+    await ctx.reply('Hello! This is a test response from start handler.');
+    logger.info({ userId }, 'START HANDLER SUCCESS');
 
   } catch (error) {
-    logger.error({
-      userId: ctx.from?.id,
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-    }, 'Error in start handler');
-
-    try {
-      await ctx.reply(t('error_generic'));
-    } catch (replyError) {
-      logger.error('Failed to send error reply in start handler', replyError);
-    }
+    logger.error({ error }, 'START HANDLER ERROR');
+    await ctx.reply('Error in start handler');
   }
 }
