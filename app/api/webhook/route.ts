@@ -17,7 +17,7 @@ import pino from 'pino'
 config()
 
 const logger = pino({ 
-  name: 'webhook-handler-v2', // Force rebuild
+  name: 'webhook-handler-v3-' + Date.now(), // Force rebuild with timestamp
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
 })
 
