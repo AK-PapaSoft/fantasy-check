@@ -14,16 +14,46 @@ export async function POST(request: NextRequest) {
     // Initialize Telegraf bot
     const bot = new Telegraf(telegramToken)
     
-    // Import handlers
-    const { handleStart } = await import('../../../src/bot/handlers/start')
-    const { handleHelp } = await import('../../../src/bot/handlers/help')
-    const { handleLinkSleeper } = await import('../../../src/bot/handlers/link-sleeper')
-    const { handleLeagues, handleLeagueCallback } = await import('../../../src/bot/handlers/leagues')
-    const { handleToday } = await import('../../../src/bot/handlers/today')
-    const { handleTimezone, handleTimezoneInput } = await import('../../../src/bot/handlers/timezone')
-    const { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } = await import('../../../src/bot/handlers/feedback')
-    const { handleLanguage } = await import('../../../src/bot/handlers/language')
-    const { t } = await import('../../../src/i18n')
+    // Import handlers - with fallbacks for database connection issues
+    const { handleStart } = await import('../../../src/bot/handlers/start').catch(() => ({ handleStart: async (ctx: any) => ctx.reply('🚀 Fantasy Check Bot працює! Ласкаво просимо!') }))
+    const { handleHelp } = await import('../../../src/bot/handlers/help').catch(() => ({ handleHelp: async (ctx: any) => ctx.reply('🔧 **Доступні команди:**\n• /start - Почати роботу\n• /help - Довідка\n• /link_sleeper <нік> - Підключити Sleeper') }))
+    
+    // Simplified link_sleeper handler without database
+    const handleLinkSleeper = async (ctx: any) => {
+      const message = ctx.message && 'text' in ctx.message ? ctx.message.text : ''
+      const args = message.split(' ').slice(1)
+      
+      if (args.length === 0 || !args[0]) {
+        await ctx.reply('❌ Формат команди: /link_sleeper <нікнейм>\n\nПриклад: /link_sleeper Disgusting23')
+        return
+      }
+      
+      const username = args[0].trim()
+      
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        await ctx.reply('❌ Нікнейм може містити лише букви, цифри та знак підкреслення')
+        return
+      }
+      
+      await ctx.reply(`✅ Спробую підключити користувача "${username}"...\n\n🔄 База даних тимчасово недоступна. Розробники працюють над відновленням функціональності.\n\nПоки що можете скористатись командами:\n• /help - Довідка\n• /start - Перезапуск бота`)
+    }
+    
+    // Import other handlers with fallbacks
+    const { handleLeagues, handleLeagueCallback } = await import('../../../src/bot/handlers/leagues').catch(() => ({ 
+      handleLeagues: async (ctx: any) => ctx.reply('🏈 Функція ліг тимчасово недоступна'),
+      handleLeagueCallback: async (ctx: any) => ctx.reply('Функція тимчасово недоступна')
+    }))
+    const { handleToday } = await import('../../../src/bot/handlers/today').catch(() => ({ handleToday: async (ctx: any) => ctx.reply('📊 Денний дайджест тимчасово недоступний') }))
+    const { handleTimezone, handleTimezoneInput } = await import('../../../src/bot/handlers/timezone').catch(() => ({ 
+      handleTimezone: async (ctx: any) => ctx.reply('🕐 Функція часового поясу тимчасово недоступна'),
+      handleTimezoneInput: async (ctx: any) => {}
+    }))
+    const { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } = await import('../../../src/bot/handlers/feedback').catch(() => ({ 
+      handleFeedback: async (ctx: any) => ctx.reply('💬 Для зв\'язку з розробниками напишіть: @ak_papasoft'),
+      handleFeedbackMessage: async (ctx: any) => {},
+      isUserInFeedbackMode: () => false
+    }))
+    const { handleLanguage } = await import('../../../src/bot/handlers/language').catch(() => ({ handleLanguage: async (ctx: any) => ctx.reply('🌐 Мова інтерфейсу: Українська') }))
     
     // Setup command handlers
     bot.command('start', handleStart)
@@ -53,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Handle unknown commands
     bot.on('message', async (ctx) => {
       if (ctx.message && 'text' in ctx.message && ctx.message.text.startsWith('/')) {
-        await ctx.reply(t('error_generic') + '\n\nВикористай /help для списку команд.')
+        await ctx.reply('❌ Невідома команда\n\nВикористай /help для списку команд.')
       }
     })
 
@@ -61,7 +91,7 @@ export async function POST(request: NextRequest) {
     bot.catch(async (err, ctx) => {
       console.error('=== BOT ERROR ===', err)
       try {
-        await ctx.reply(t('error_generic'))
+        await ctx.reply('❌ Сталася помилка. Спробуйте пізніше.')
       } catch (replyError) {
         console.error('Failed to send error message:', replyError)
       }
