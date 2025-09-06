@@ -23,6 +23,11 @@ const prisma = new PrismaClient({
       level: 'warn',
     },
   ],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
 });
 
 // Log database queries in development
