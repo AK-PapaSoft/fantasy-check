@@ -20,73 +20,16 @@ export async function handleStart(ctx: Context): Promise<void> {
       firstName: ctx.from?.first_name,
     }, 'User started bot');
 
-    // Try Prisma first, fallback to Supabase
-    let existingUser;
-    let isNewUser = true;
-    
+    // For now, skip database operations and just send greeting
+    // This will help us isolate if the issue is in DB or elsewhere
     try {
-      // Check if this is a new user and create/update with Telegram info
-      existingUser = await prisma.user.findUnique({
-        where: { tgUserId: BigInt(userId) },
-      });
-
-      isNewUser = !existingUser;
-
-      // Update or create user with full Telegram info
-      await prisma.user.upsert({
-        where: { tgUserId: BigInt(userId) },
-        update: {
-          tgUsername: ctx.from?.username,
-          firstName: ctx.from?.first_name,
-          lastName: ctx.from?.last_name,
-          updatedAt: new Date(),
-        },
-        create: {
-          tgUserId: BigInt(userId),
-          tgUsername: ctx.from?.username,
-          firstName: ctx.from?.first_name,
-          lastName: ctx.from?.last_name,
-          lang: 'uk', // Ukrainian default for Telegram
-          tz: 'Europe/Kiev', // Kiev timezone as default
-          platform: 'telegram',
-        },
-      });
-      
-      logger.info({ userId }, 'User upserted successfully via Prisma');
-    } catch (prismaError) {
-      logger.warn({ userId, error: prismaError }, 'Prisma failed, trying Supabase fallback');
-      
-      try {
-        // Fallback to Supabase
-        existingUser = await supabaseService.getUserByTgId(BigInt(userId));
-        isNewUser = !existingUser;
-        
-        await supabaseService.upsertUser({
-          tgUserId: BigInt(userId),
-          tgUsername: ctx.from?.username,
-          firstName: ctx.from?.first_name,
-          lastName: ctx.from?.last_name,
-          lang: 'uk',
-          tz: 'Europe/Kiev',
-          platform: 'telegram'
-        });
-        
-        logger.info({ userId }, 'User upserted successfully via Supabase fallback');
-      } catch (supabaseError) {
-        logger.error({ 
-          userId, 
-          prismaError: prismaError instanceof Error ? prismaError.message : prismaError,
-          supabaseError: supabaseError instanceof Error ? supabaseError.message : supabaseError,
-          supabaseStack: supabaseError instanceof Error ? supabaseError.stack : undefined
-        }, 'Both Prisma and Supabase failed');
-        throw supabaseError;
-      }
+      const greeting = t('greet_sporthub', {}, 'uk');
+      await ctx.reply(greeting);
+      logger.info({ userId }, 'Greeting sent successfully');
+    } catch (greetingError) {
+      logger.error({ userId, error: greetingError }, 'Failed to send greeting');
+      throw greetingError;
     }
-
-    // Get user language and send appropriate greeting
-    const userLang = await getUserLanguage(BigInt(userId));
-    const greeting = isNewUser ? t('greet_sporthub', {}, userLang) : t('greet', {}, userLang);
-    await ctx.reply(greeting);
 
   } catch (error) {
     logger.error({
