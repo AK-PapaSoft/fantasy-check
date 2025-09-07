@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
 📱 **Бот працює на:** https://fantasy-check.vercel.app/
 
-💬 **Підтримка:** @ak_papasoft`
+💬 **Підтримка:** @anton_kravchuk23`
         await ctx.reply(helpMessage, { parse_mode: 'Markdown' })
       }
     }))
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
           responseMessage += `\n\n🏈 **Ліги NFL 2024:** Не знайдено`
         }
         
-        responseMessage += `\n\n🔄 **Статус БД:** Тимчасово недоступна\n💾 Дані не збережені, але перевірка профілю працює!\n\n💬 **Питання?** @ak_papasoft`
+        responseMessage += `\n\n🔄 **Статус БД:** Тимчасово недоступна\n💾 Дані не збережені, але перевірка профілю працює!\n\n💬 **Питання?** @anton_kravchuk23`
         
         await ctx.reply(responseMessage, { 
           parse_mode: 'Markdown',
@@ -114,13 +114,13 @@ export async function POST(request: NextRequest) {
         
       } catch (error) {
         console.error('Sleeper API error:', error)
-        await ctx.reply(`❌ **Помилка з'єднання**\n\nНе вдалося підключитися до Sleeper API.\n\n🔄 **Спробуйте:**\n• Повторити через кілька хвилин\n• Перевірити правильність нікнейму\n\n💬 **Проблеми?** @ak_papasoft`, { parse_mode: 'Markdown' })
+        await ctx.reply(`❌ **Помилка з'єднання**\n\nНе вдалося підключитися до Sleeper API.\n\n🔄 **Спробуйте:**\n• Повторити через кілька хвилин\n• Перевірити правильність нікнейму\n\n💬 **Проблеми?** @anton_kravchuk23`, { parse_mode: 'Markdown' })
       }
     }
     
     // Improved fallback handlers
     const handleLeagues = async (ctx: any) => {
-      await ctx.reply('🏈 **Мої ліги**\n\n🔄 Функція ліг тимчасово недоступна через проблеми з базою даних.\n\n📝 **Що можете зробити:**\n• Спочатку використайте /link_sleeper <нік> для підключення профілю\n• Після відновлення БД ваші ліги автоматично завантажяться\n\n💬 **Питання?** Пишіть @ak_papasoft', { parse_mode: 'Markdown' })
+      await ctx.reply('🏈 **Мої ліги**\n\n🔄 Функція ліг тимчасово недоступна через проблеми з базою даних.\n\n📝 **Що можете зробити:**\n• Спочатку використайте /link_sleeper <нік> для підключення профілю\n• Після відновлення БД ваші ліги автоматично завантажяться\n\n💬 **Питання?** Пишіть @anton_kravchuk23', { parse_mode: 'Markdown' })
     }
     
     const handleLeagueCallback = async (ctx: any) => {
@@ -142,13 +142,13 @@ export async function POST(request: NextRequest) {
 
 💡 **Підказка:** Використайте /link_sleeper для підключення профілю, щоб після відновлення отримувати персоналізовані дайджести.
 
-💬 **Питання?** @ak_papasoft`
+💬 **Питання?** @anton_kravchuk23`
       
       await ctx.reply(todayMessage, { parse_mode: 'Markdown' })
     }
     
     const handleTimezone = async (ctx: any) => {
-      await ctx.reply('🕐 **Налаштування часового поясу**\n\n🔄 Функція тимчасово недоступна.\n\n📍 **Поточний пояс:** Europe/Kiev (UTC+2)\n\n💬 **Потрібна допомога?** @ak_papasoft', { parse_mode: 'Markdown' })
+      await ctx.reply('🕐 **Налаштування часового поясу**\n\n🔄 Функція тимчасово недоступна.\n\n📍 **Поточний пояс:** Europe/Kiev (UTC+2)\n\n💬 **Потрібна допомога?** @anton_kravchuk23', { parse_mode: 'Markdown' })
     }
     
     const handleTimezoneInput = async (ctx: any) => {
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
     
     const handleFeedback = async (ctx: any) => {
-      await ctx.reply('💬 **Зв\'язок з розробниками**\n\n📩 Для відгуків, пропозицій або звітів про помилки пишіть напряму: @ak_papasoft\n\n🔧 **Що можете повідомити:**\n• Помилки в роботі бота\n• Ідеї для покращення\n• Проблеми з командами\n• Пропозиції нових функцій\n\n⚡ Ми намагаємося відповісти протягом доби!', { parse_mode: 'Markdown' })
+      await ctx.reply('💬 **Зв\'язок з розробниками**\n\n📩 Для відгуків, пропозицій або звітів про помилки пишіть напряму: @anton_kravchuk23\n\n🔧 **Що можете повідомити:**\n• Помилки в роботі бота\n• Ідеї для покращення\n• Проблеми з командами\n• Пропозиції нових функцій\n\n⚡ Ми намагаємося відповісти протягом доби!', { parse_mode: 'Markdown' })
     }
     
     const handleFeedbackMessage = async (ctx: any) => {
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     const isUserInFeedbackMode = () => false
     
     const handleLanguage = async (ctx: any) => {
-      await ctx.reply('🌐 **Мова інтерфейсу**\n\n🇺🇦 Поточна мова: **Українська**\n\n🔄 Функція зміни мови тимчасово недоступна.\n\n💡 **Підтримуються мови:**\n• 🇺🇦 Українська\n• 🇺🇸 English\n\n💬 **Потрібна допомога?** @ak_papasoft', { parse_mode: 'Markdown' })
+      await ctx.reply('🌐 **Мова інтерфейсу**\n\n🇺🇦 Поточна мова: **Українська**\n\n🔄 Функція зміни мови тимчасово недоступна.\n\n💡 **Підтримуються мови:**\n• 🇺🇦 Українська\n• 🇺🇸 English\n\n💬 **Потрібна допомога?** @anton_kravchuk23', { parse_mode: 'Markdown' })
     }
     
     // Setup command handlers
