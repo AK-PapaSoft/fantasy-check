@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     bot.on('text', async (ctx) => {
       const userId = ctx.from?.id
       
-      if (userId && isUserInFeedbackMode(userId)) {
+      if (userId && isUserInFeedbackMode()) {
         await handleFeedbackMessage(ctx)
         return
       }
