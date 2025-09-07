@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
             })
             
             if (userLookupResponse.ok) {
-              const userLookupData = await userLookupResponse.json()
+              const userLookupData = await userLookupResponse.json() as any[]
               console.log(`=== USER LOOKUP RESULT: ${JSON.stringify(userLookupData)} ===`)
               
               if (userLookupData && userLookupData.length > 0) {
