@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '../../../src/db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,6 +109,89 @@ export async function POST(request: NextRequest) {
         }
         
         responseMessage += `\\n\\n🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!\\n\\n💬 **Питання?** @anton_kravchuk23`
+        
+        // Try to save to database
+        try {
+          console.log(`=== SAVING TO DATABASE ===`)
+          
+          // Create or update user
+          const user = await prisma.user.upsert({
+            where: { tgUserId: BigInt(chatId) },
+            update: {
+              updatedAt: new Date()
+            },
+            create: {
+              tgUserId: BigInt(chatId),
+              platform: 'telegram'
+            }
+          })
+          
+          // Create or update provider
+          await prisma.provider.upsert({
+            where: { 
+              userId_provider: {
+                userId: user.id,
+                provider: 'sleeper'
+              }
+            },
+            update: {
+              providerUsername: userData.username,
+              providerUserId: userData.user_id,
+              updatedAt: new Date()
+            },
+            create: {
+              userId: user.id,
+              provider: 'sleeper',
+              providerUsername: userData.username,
+              providerUserId: userData.user_id
+            }
+          })
+          
+          // Save leagues
+          for (const league of leagues) {
+            const savedLeague = await prisma.league.upsert({
+              where: { providerLeagueId: league.league_id },
+              update: {
+                name: league.name,
+                season: 2024,
+                updatedAt: new Date()
+              },
+              create: {
+                provider: 'sleeper',
+                providerLeagueId: league.league_id,
+                name: league.name,
+                season: 2024,
+                sport: 'nfl'
+              }
+            })
+            
+            // Link user to league
+            await prisma.userLeague.upsert({
+              where: {
+                userId_leagueId: {
+                  userId: user.id,
+                  leagueId: savedLeague.id
+                }
+              },
+              update: {},
+              create: {
+                userId: user.id,
+                leagueId: savedLeague.id,
+                teamId: '1' // Default team ID, should be updated with actual roster info
+              }
+            })
+          }
+          
+          responseMessage = responseMessage.replace(
+            '🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!',
+            '✅ **Статус БД:** Підключено\\n💾 Дані збережено в базі даних!'
+          )
+          
+          console.log(`=== DATABASE SAVE SUCCESSFUL ===`)
+        } catch (dbError) {
+          console.error('=== DATABASE ERROR ===', dbError)
+          // Keep the original message about DB being unavailable
+        }
         
         console.log(`=== SENDING FINAL MESSAGE ===`)
         await sendMessage(telegramToken, chatId, responseMessage)
