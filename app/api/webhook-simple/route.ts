@@ -358,8 +358,8 @@ export async function POST(request: NextRequest) {
         
         let todayMessage = `**📊 Дайджест тижня ${currentWeek}**\n\n`
         
-        // Process up to 3 leagues
-        for (let i = 0; i < Math.min(userLeagues.length, 3); i++) {
+        // Process all user leagues
+        for (let i = 0; i < userLeagues.length; i++) {
           const league = userLeagues[i]
           
           try {
@@ -457,7 +457,12 @@ export async function POST(request: NextRequest) {
               
               if (matchupsToShow.length === 0) {
                 // User has no matchup in this league this week
-                todayMessage += `Не граєте цього тижня\n`
+                // Try to find user's team name in this league
+                let userTeamName = 'Ваша команда'
+                if (userRosterId && teamNames[userRosterId]) {
+                  userTeamName = teamNames[userRosterId]
+                }
+                todayMessage += `🌟 **${userTeamName}**: не грає цього тижня\n`
               }
               
               matchupsToShow.forEach((matchupData, index) => {
@@ -495,7 +500,7 @@ export async function POST(request: NextRequest) {
                   status = `**Нічия**`
                 }
                 
-                todayMessage += `vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status})\n`
+                todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status})\n`
               })
             }
           } catch (leagueError) {
@@ -503,13 +508,9 @@ export async function POST(request: NextRequest) {
           }
           
           // Add line break between leagues
-          if (i < Math.min(userLeagues.length, 3) - 1) {
+          if (i < userLeagues.length - 1) {
             todayMessage += '\n'
           }
-        }
-        
-        if (userLeagues.length > 3) {
-          todayMessage += `\n... і ще **${userLeagues.length - 3} ліг**`
         }
         
         todayMessage += `\n\n**Підтримка** (і психологічна) від @anton_kravchuk23`
