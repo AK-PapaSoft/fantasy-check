@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         
-        let todayMessage = `🏈 **Сьогоднішній дайджест** (Тиждень ${currentWeek})\n\n`
+        let todayMessage = `🏈 **СЬОГОДНІШНІЙ ДАЙДЖЕСТ**\n📅 **Тиждень ${currentWeek}, NFL ${season}**\n\n`
         
         // Process up to 3 leagues
         for (let i = 0; i < Math.min(userLeagues.length, 3); i++) {
@@ -367,8 +367,62 @@ export async function POST(request: NextRequest) {
             const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${currentWeek}`)
             const matchups = matchupsResponse.ok ? await matchupsResponse.json() as any[] : []
             
+            // Get league users to map roster_id to team names
+            const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/users`)
+            const leagueUsers = usersResponse.ok ? await usersResponse.json() as any[] : []
+            
+            // Get rosters to map roster_id to owner_id
+            const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`)
+            const rosters = rostersResponse.ok ? await rostersResponse.json() as any[] : []
+            
+            // Create mapping from roster_id to team name and find user's team
+            const teamNames: { [key: number]: string } = {}
+            let userRosterId: number | null = null
+            let userSleeperUserId: string | null = null
+            
+            // Get user's Sleeper ID from database
+            try {
+              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+              const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+              
+              if (supabaseUrl && supabaseKey) {
+                const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=providers(providerUserId)`, {
+                  headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json'
+                  }
+                })
+                
+                if (userResponse.ok) {
+                  const users = await userResponse.json() as any[]
+                  if (users.length > 0 && users[0].providers.length > 0) {
+                    userSleeperUserId = users[0].providers[0].providerUserId
+                  }
+                }
+              }
+            } catch (dbError) {
+              console.error('Error getting user Sleeper ID:', dbError)
+            }
+            
+            rosters.forEach(roster => {
+              const owner = leagueUsers.find(user => user.user_id === roster.owner_id)
+              if (owner) {
+                const teamName = owner.display_name || `Team ${roster.roster_id}`
+                teamNames[roster.roster_id] = teamName
+                
+                // Check if this is the user's team
+                if (userSleeperUserId && roster.owner_id === userSleeperUserId) {
+                  userRosterId = roster.roster_id
+                }
+              } else {
+                teamNames[roster.roster_id] = `Team ${roster.roster_id}`
+              }
+            })
+            
             if (matchups.length > 0) {
-              todayMessage += `🏆 **${league.name}**\n`
+              const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+              todayMessage += `🏆 **${safeName}**\n`
               
               // Group matchups by matchup_id
               const matchupGroups: { [key: number]: any[] } = {}
@@ -389,15 +443,33 @@ export async function POST(request: NextRequest) {
                   const team1 = matchupTeams[0]
                   const team2 = matchupTeams[1]
                   
-                  todayMessage += `📊 Команда ${team1.roster_id}: ${team1.points} очок\n`
-                  todayMessage += `📊 Команда ${team2.roster_id}: ${team2.points} очок\n`
+                  const team1Name = teamNames[team1.roster_id] || `Team ${team1.roster_id}`
+                  const team2Name = teamNames[team2.roster_id] || `Team ${team2.roster_id}`
+                  
+                  // Check if user's team is in this matchup
+                  const isUserTeam1 = userRosterId === team1.roster_id
+                  const isUserTeam2 = userRosterId === team2.roster_id
+                  
+                  // Special formatting for user's team
+                  const formatTeamName = (name: string, isUser: boolean) => {
+                    return isUser ? `🌟 **${name}** (ВИ)` : `**${name}**`
+                  }
+                  
+                  const displayTeam1 = formatTeamName(team1Name, isUserTeam1)
+                  const displayTeam2 = formatTeamName(team2Name, isUserTeam2)
+                  
+                  todayMessage += `\n⚔️ ${displayTeam1} vs ${displayTeam2}\n`
+                  todayMessage += `📊 ${displayTeam1}: **${team1.points}** очок\n`
+                  todayMessage += `📊 ${displayTeam2}: **${team2.points}** очок\n`
                   
                   if (team1.points > team2.points) {
-                    todayMessage += `🏆 Веде: Команда ${team1.roster_id}\n`
+                    const winner = isUserTeam1 ? `🎉 **ВЕДЕТЕ: ${team1Name}**` : `🏆 **Веде: ${team1Name}**`
+                    todayMessage += `${winner} (+${(team1.points - team2.points).toFixed(1)})\n`
                   } else if (team2.points > team1.points) {
-                    todayMessage += `🏆 Веде: Команда ${team2.roster_id}\n`
+                    const winner = isUserTeam2 ? `🎉 **ВЕДЕТЕ: ${team2Name}**` : `🏆 **Веде: ${team2Name}**`
+                    todayMessage += `${winner} (+${(team2.points - team1.points).toFixed(1)})\n`
                   } else {
-                    todayMessage += `🤝 Нічия!\n`
+                    todayMessage += `🤝 **Нічия!** ${team1.points.toFixed(1)} - ${team2.points.toFixed(1)}\n`
                   }
                   todayMessage += '\n'
                   matchupCount++
@@ -410,12 +482,13 @@ export async function POST(request: NextRequest) {
         }
         
         if (userLeagues.length > 3) {
-          todayMessage += `... і ще ${userLeagues.length - 3} ліг\n\n`
+          todayMessage += `📋 ... і ще **${userLeagues.length - 3} ліг**\n\n`
         }
         
-        todayMessage += `🔄 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
+        todayMessage += `━━━━━━━━━━━━━━━━━━━━\n`
+        todayMessage += `🔄 **Оновлено**: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
         todayMessage += `⏰ Київський час\n\n`
-        todayMessage += `💬 Питання? @anton_kravchuk23`
+        todayMessage += `💬 **Підтримка**: @anton_kravchuk23`
         
         await sendMessage(telegramToken, chatId, todayMessage)
         
