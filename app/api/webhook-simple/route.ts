@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../src/db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,18 +27,19 @@ export async function POST(request: NextRequest) {
       const args = text.split(' ').slice(1)
       
       if (args.length === 0 || !args[0]) {
-        await sendMessage(telegramToken, chatId, '❌ **Формат команди:** `/link_sleeper <нікнейм>`\\n\\n📝 **Приклад:** `/link_sleeper Disgusting23`')
+        await sendMessage(telegramToken, chatId, '❌ Формат команди: /link_sleeper <нікнейм>\n\n📝 Приклад: /link_sleeper Disgusting23')
         return NextResponse.json({ ok: true })
       }
       
       const username = args[0].trim()
       
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        await sendMessage(telegramToken, chatId, '❌ **Помилка формату**\\n\\nНікнейм може містити лише:\\n• Латинські букви (a-z, A-Z)\\n• Цифри (0-9)\\n• Знак підкреслення (_)')
+        await sendMessage(telegramToken, chatId, '❌ Помилка формату\n\nНікнейм може містити лише:\n• Латинські букви (a-z, A-Z)\n• Цифри (0-9)\n• Знак підкреслення (_)')
         return NextResponse.json({ ok: true })
       }
       
-      await sendMessage(telegramToken, chatId, `🔍 Шукаю користувача **${username}** в Sleeper...`)
+      await sendMessage(telegramToken, chatId, `🔍 Шукаю користувача "${username}" в Sleeper...`)
+      
       try {
         console.log(`=== CALLING SLEEPER API FOR USER: ${username} ===`)
         
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         if (!userResponse.ok) {
           if (userResponse.status === 404) {
             console.log(`=== USER NOT FOUND: ${username} ===`)
-            await sendMessage(telegramToken, chatId, `❌ **Користувача не знайдено**\\n\\nКористувача "${username}" не існує в Sleeper.\\n\\n✅ **Перевірте:**\\n• Правильність написання нікнейму\\n• Чи існує такий профіль в Sleeper\\n\\n💡 **Підказка:** Нікнейм чутливий до регістру`)
+            await sendMessage(telegramToken, chatId, `❌ Користувача не знайдено\n\nКористувача "${username}" не існує в Sleeper.\n\n✅ Перевірте:\n• Правильність написання нікнейму\n• Чи існує такий профіль в Sleeper\n\n💡 Підказка: Нікнейм чутливий до регістру`)
             return NextResponse.json({ ok: true })
           }
           throw new Error(`HTTP ${userResponse.status}`)
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         
         if (!userData || !userData.user_id) {
           console.log(`=== INVALID USER DATA ===`)
-          await sendMessage(telegramToken, chatId, `❌ **Помилка отримання даних**\\n\\nНе вдалося отримати інформацію про користувача "${username}".\\n\\nСпробуйте пізніше.`)
+          await sendMessage(telegramToken, chatId, `❌ Помилка отримання даних\n\nНе вдалося отримати інформацію про користувача "${username}".\n\nСпробуйте пізніше.`)
           return NextResponse.json({ ok: true })
         }
         
@@ -89,137 +89,68 @@ export async function POST(request: NextRequest) {
         const displayName = userData.display_name || userData.username || username
         const avatar = userData.avatar ? `https://sleepercdn.com/avatars/thumbs/${userData.avatar}` : null
         
-        let responseMessage = `✅ **Користувача знайдено!**\\n\\n👤 **Профіль:**\\n• Ім'я: ${displayName}\\n• ID: ${userData.user_id}`
+        // Build response without complex Markdown formatting to avoid parsing errors
+        let responseMessage = `✅ Користувача знайдено!\n\n👤 Профіль:\n• Ім'я: ${displayName}\n• ID: ${userData.user_id}`
         
         if (avatar) {
-          responseMessage += `\\n• Аватар: [Переглянути](${avatar})`
+          responseMessage += `\n• Аватар: ${avatar}`
         }
         
         if (leagues && leagues.length > 0) {
-          responseMessage += `\\n\\n🏈 **Ліги NFL 2024 (${leagues.length}):**`
+          responseMessage += `\n\n🏈 Ліги NFL 2024 (${leagues.length}):`
           leagues.slice(0, 5).forEach((league: any, index: number) => {
-            responseMessage += `\\n${index + 1}. ${league.name}`
+            // Escape special characters in league name to prevent Markdown issues
+            const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+            responseMessage += `\n${index + 1}. ${safeName}`
           })
           
           if (leagues.length > 5) {
-            responseMessage += `\\n... і ще ${leagues.length - 5} ліг`
+            responseMessage += `\n... і ще ${leagues.length - 5} ліг`
           }
         } else {
-          responseMessage += `\\n\\n🏈 **Ліги NFL 2024:** Не знайдено`
+          responseMessage += `\n\n🏈 Ліги NFL 2024: Не знайдено`
         }
         
-        responseMessage += `\\n\\n🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!\\n\\n💬 **Питання?** @anton_kravchuk23`
-        
-        // Try to save to database with timeout (non-blocking)
-        const saveToDatabase = async () => {
-          try {
-            console.log(`=== SAVING TO DATABASE ===`)
-            
-            // Test database connection first with short timeout
-            const dbTimeout = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Database timeout')), 5000)
-            )
-            
-            const dbTest = prisma.$queryRaw`SELECT 1`
-            await Promise.race([dbTest, dbTimeout])
-            
-            // Create or update user
-            const user = await prisma.user.upsert({
-              where: { tgUserId: BigInt(chatId) },
-              update: {
-                updatedAt: new Date()
-              },
-              create: {
-                tgUserId: BigInt(chatId),
-                platform: 'telegram'
-              }
-            })
-            
-            // Create or update provider
-            await prisma.provider.upsert({
-              where: { 
-                userId_provider: {
-                  userId: user.id,
-                  provider: 'sleeper'
-                }
-              },
-              update: {
-                providerUsername: userData.username,
-                providerUserId: userData.user_id,
-                updatedAt: new Date()
-              },
-              create: {
-                userId: user.id,
-                provider: 'sleeper',
-                providerUsername: userData.username,
-                providerUserId: userData.user_id
-              }
-            })
-            
-            // Save leagues (limited to prevent timeout)
-            for (const league of leagues.slice(0, 3)) { // Limit to first 3 leagues
-              const savedLeague = await prisma.league.upsert({
-                where: { providerLeagueId: league.league_id },
-                update: {
-                  name: league.name,
-                  season: 2024,
-                  updatedAt: new Date()
-                },
-                create: {
-                  provider: 'sleeper',
-                  providerLeagueId: league.league_id,
-                  name: league.name,
-                  season: 2024,
-                  sport: 'nfl'
-                }
-              })
-              
-              // Link user to league
-              await prisma.userLeague.upsert({
-                where: {
-                  userId_leagueId: {
-                    userId: user.id,
-                    leagueId: savedLeague.id
-                  }
-                },
-                update: {},
-                create: {
-                  userId: user.id,
-                  leagueId: savedLeague.id,
-                  teamId: '1' // Default team ID, should be updated with actual roster info
-                }
-              })
-            }
-            
-            return true
-          } catch (dbError) {
-            console.error('=== DATABASE ERROR ===', dbError)
-            return false
-          }
-        }
-        
-        // Try to save to database but don't wait for it
-        const dbPromise = saveToDatabase()
+        // Try to save to Supabase directly (without Prisma)
         let dbSaveResult = false
-        
         try {
-          dbSaveResult = await Promise.race([
-            dbPromise,
-            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3000))
-          ])
-        } catch (error) {
-          console.error('Database save timeout or error:', error)
+          console.log(`=== TRYING SUPABASE DIRECT CONNECTION ===`)
+          
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            // Simple upsert to users table
+            const userUpsertResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
+              method: 'POST',
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                tg_user_id: chatId,
+                platform: 'telegram'
+              })
+            })
+            
+            if (userUpsertResponse.ok) {
+              console.log(`=== SUPABASE SAVE SUCCESSFUL ===`)
+              dbSaveResult = true
+            }
+          }
+        } catch (dbError) {
+          console.error('=== SUPABASE ERROR ===', dbError)
         }
         
         if (dbSaveResult) {
-          responseMessage = responseMessage.replace(
-            '🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!',
-            '✅ **Статус БД:** Підключено\\n💾 Дані збережено в базі даних!'
-          )
-          console.log(`=== DATABASE SAVE SUCCESSFUL ===`)
+          responseMessage += `\n\n✅ Статус БД: Підключено\n💾 Дані збережено в базі даних!`
         } else {
-          console.log(`=== DATABASE SAVE FAILED OR TIMEOUT ===`)
+          responseMessage += `\n\n🔄 Статус БД: Тимчасово недоступна\n💾 Дані не збережені, але перевірка профілю працює!`
         }
+        
+        responseMessage += `\n\n💬 Питання? @anton_kravchuk23`
         
         console.log(`=== SENDING FINAL MESSAGE ===`)
         await sendMessage(telegramToken, chatId, responseMessage)
@@ -228,39 +159,39 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('=== SLEEPER API ERROR ===', error)
         
-        let errorMessage = `❌ **Помилка з'єднання**\\n\\nНе вдалося підключитися до Sleeper API.`
+        let errorMessage = `❌ Помилка з'єднання\n\nНе вдалося підключитися до Sleeper API.`
         
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
-            errorMessage = `❌ **Тайм-аут запиту**\\n\\nЗапит до Sleeper API перевищив час очікування.`
+            errorMessage = `❌ Тайм-аут запиту\n\nЗапит до Sleeper API перевищив час очікування.`
           }
           console.error('Error details:', error.message)
         }
         
-        errorMessage += `\\n\\n🔄 **Спробуйте:**\\n• Повторити через кілька хвилин\\n• Перевірити правильність нікнейму\\n\\n💬 **Проблеми?** @anton_kravchuk23`
+        errorMessage += `\n\n🔄 Спробуйте:\n• Повторити через кілька хвилин\n• Перевірити правильність нікнейму\n\n💬 Проблеми? @anton_kravchuk23`
         
         await sendMessage(telegramToken, chatId, errorMessage)
       }
     } else if (text === '/help') {
-      const helpMessage = `🔧 **Fantasy Check - Довідка**
+      const helpMessage = `🔧 Fantasy Check - Довідка
 
-🏈 **Основні команди:**
+🏈 Основні команди:
 • /start - Почати роботу з ботом
 • /help - Показати цю довідку
 • /link_sleeper <нік> - Підключити Sleeper профіль
 
-🏆 **Управління лігами:**
+🏆 Управління лігами:
 • /leagues - Переглянути мої ліги
 • /today - Дайджест на сьогодні
 
-⚙️ **Налаштування:**
+⚙️ Налаштування:
 • /timezone - Змінити часовий пояс
 • /lang - Змінити мову
 • /feedback - Надіслати відгук
 
-📱 **Бот працює на:** https://fantasy-check.vercel.app/
+📱 Бот працює на: https://fantasy-check.vercel.app/
 
-💬 **Підтримка:** @anton_kravchuk23`
+💬 Підтримка: @anton_kravchuk23`
       
       await sendMessage(telegramToken, chatId, helpMessage)
     } else if (text === '/start') {
@@ -280,9 +211,6 @@ export async function POST(request: NextRequest) {
 
 async function sendMessage(token: string, chatId: number, text: string) {
   try {
-    // Replace escaped newlines with actual newlines
-    const cleanText = text.replace(/\\n/g, '\n')
-    
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: {
@@ -290,14 +218,14 @@ async function sendMessage(token: string, chatId: number, text: string) {
       },
       body: JSON.stringify({
         chat_id: chatId,
-        text: cleanText,
-        parse_mode: 'Markdown',
+        text: text,
         disable_web_page_preview: true
       }),
     })
     
     if (!response.ok) {
-      console.error('Failed to send message:', await response.text())
+      const errorText = await response.text()
+      console.error('Failed to send message:', errorText)
     } else {
       console.log('Message sent successfully')
     }
