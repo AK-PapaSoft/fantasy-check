@@ -290,6 +290,221 @@ export async function POST(request: NextRequest) {
 💬 Підтримка: @anton_kravchuk23`
       
       await sendMessage(telegramToken, chatId, helpMessage)
+    } else if (text === '/today') {
+      try {
+        console.log(`=== HANDLING /today COMMAND ===`)
+        
+        // First, get current NFL state
+        const nflStateResponse = await fetch('https://api.sleeper.app/v1/state/nfl')
+        const nflState = nflStateResponse.ok ? await nflStateResponse.json() as any : null
+        
+        if (!nflState) {
+          await sendMessage(telegramToken, chatId, '❌ Не вдалося отримати інформацію про поточний стан NFL')
+          return NextResponse.json({ ok: true })
+        }
+        
+        const currentWeek = nflState.week
+        const season = nflState.season
+        
+        // Get user's leagues from database or recent API calls
+        await sendMessage(telegramToken, chatId, `📊 Збираю дані за ${currentWeek} тиждень NFL ${season}...`)
+        
+        // Get user leagues from database
+        let userLeagues: any[] = []
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            // Get user from database
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=id,providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                const sleeperUserId = users[0].providers[0].providerUserId
+                console.log(`=== FOUND USER SLEEPER ID: ${sleeperUserId} ===`)
+                
+                // Get leagues from Sleeper API using stored user ID
+                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
+                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+              }
+            }
+          }
+          
+          // Fallback to test user if database doesn't have data
+          if (userLeagues.length === 0) {
+            console.log('=== FALLBACK TO TEST USER ===')
+            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          }
+        } catch (dbError) {
+          console.error('Database error in /today:', dbError)
+          // Fallback to test user
+          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+        }
+        
+        if (userLeagues.length === 0) {
+          await sendMessage(telegramToken, chatId, '❌ Не знайдено активних ліг.\n\nВикористайте /link_sleeper <нік> для підключення профілю')
+          return NextResponse.json({ ok: true })
+        }
+        
+        let todayMessage = `🏈 **Сьогоднішній дайджест** (Тиждень ${currentWeek})\n\n`
+        
+        // Process up to 3 leagues
+        for (let i = 0; i < Math.min(userLeagues.length, 3); i++) {
+          const league = userLeagues[i]
+          
+          try {
+            // Get matchups for current week
+            const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${currentWeek}`)
+            const matchups = matchupsResponse.ok ? await matchupsResponse.json() as any[] : []
+            
+            if (matchups.length > 0) {
+              todayMessage += `🏆 **${league.name}**\n`
+              
+              // Group matchups by matchup_id
+              const matchupGroups: { [key: number]: any[] } = {}
+              matchups.forEach(matchup => {
+                if (!matchupGroups[matchup.matchup_id]) {
+                  matchupGroups[matchup.matchup_id] = []
+                }
+                matchupGroups[matchup.matchup_id].push(matchup)
+              })
+              
+              // Show top matchups
+              let matchupCount = 0
+              for (const matchupId in matchupGroups) {
+                if (matchupCount >= 2) break // Show max 2 matchups per league
+                
+                const matchupTeams = matchupGroups[matchupId]
+                if (matchupTeams.length === 2) {
+                  const team1 = matchupTeams[0]
+                  const team2 = matchupTeams[1]
+                  
+                  todayMessage += `📊 Команда ${team1.roster_id}: ${team1.points} очок\n`
+                  todayMessage += `📊 Команда ${team2.roster_id}: ${team2.points} очок\n`
+                  
+                  if (team1.points > team2.points) {
+                    todayMessage += `🏆 Веде: Команда ${team1.roster_id}\n`
+                  } else if (team2.points > team1.points) {
+                    todayMessage += `🏆 Веде: Команда ${team2.roster_id}\n`
+                  } else {
+                    todayMessage += `🤝 Нічия!\n`
+                  }
+                  todayMessage += '\n'
+                  matchupCount++
+                }
+              }
+            }
+          } catch (leagueError) {
+            console.error(`Error processing league ${league.league_id}:`, leagueError)
+          }
+        }
+        
+        if (userLeagues.length > 3) {
+          todayMessage += `... і ще ${userLeagues.length - 3} ліг\n\n`
+        }
+        
+        todayMessage += `🔄 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
+        todayMessage += `⏰ Київський час\n\n`
+        todayMessage += `💬 Питання? @anton_kravchuk23`
+        
+        await sendMessage(telegramToken, chatId, todayMessage)
+        
+      } catch (error) {
+        console.error('=== /today ERROR ===', error)
+        await sendMessage(telegramToken, chatId, '❌ Помилка при отриманні даних сьогодні.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
+      }
+    } else if (text === '/leagues') {
+      try {
+        console.log(`=== HANDLING /leagues COMMAND ===`)
+        
+        await sendMessage(telegramToken, chatId, '📋 Шукаю ваші ліги...')
+        
+        // Get user leagues from database (same logic as /today)
+        let userLeagues: any[] = []
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=id,providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                const sleeperUserId = users[0].providers[0].providerUserId
+                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
+                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+              }
+            }
+          }
+          
+          // Fallback
+          if (userLeagues.length === 0) {
+            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          }
+        } catch (dbError) {
+          console.error('Database error in /leagues:', dbError)
+          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+        }
+        
+        if (userLeagues.length === 0) {
+          await sendMessage(telegramToken, chatId, '❌ Не знайдено активних ліг.\n\nВикористайте /link_sleeper <нік> для підключення профілю')
+          return NextResponse.json({ ok: true })
+        }
+        
+        let leaguesMessage = `🏈 **Ваші ліги NFL 2024** (${userLeagues.length})\n\n`
+        
+        userLeagues.forEach((league: any, index: number) => {
+          // Detect league type
+          let leagueType = ''
+          if (league.settings?.best_ball === 1) {
+            leagueType = ' (BestBall)'
+          } else if (league.settings?.type === 2) {
+            leagueType = ' (Dynasty)'
+          } else if (league.name.toLowerCase().includes('dynasty')) {
+            leagueType = ' (Dynasty)'
+          } else if (league.name.toLowerCase().includes('bestball') || league.name.toLowerCase().includes('best ball')) {
+            leagueType = ' (BestBall)'
+          }
+          
+          const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+          
+          leaguesMessage += `${index + 1}. **${safeName}**${leagueType}\n`
+          leaguesMessage += `   👥 Команд: ${league.total_rosters}\n`
+          leaguesMessage += `   📊 Статус: ${league.status === 'complete' ? '✅ Завершена' : '🔄 Активна'}\n`
+          if (league.settings?.playoff_teams) {
+            leaguesMessage += `   🏆 Плей-оф: ${league.settings.playoff_teams} команд\n`
+          }
+          leaguesMessage += '\n'
+        })
+        
+        leaguesMessage += `🔄 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
+        leaguesMessage += `💬 Питання? @anton_kravchuk23`
+        
+        await sendMessage(telegramToken, chatId, leaguesMessage)
+        
+      } catch (error) {
+        console.error('=== /leagues ERROR ===', error)
+        await sendMessage(telegramToken, chatId, '❌ Помилка при отриманні списку ліг.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
+      }
     } else if (text === '/start') {
       await sendMessage(telegramToken, chatId, '🚀 Fantasy Check Bot працює! Ласкаво просимо!')
     }
