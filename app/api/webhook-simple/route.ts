@@ -101,7 +101,20 @@ export async function POST(request: NextRequest) {
           leagues.slice(0, 5).forEach((league: any, index: number) => {
             // Escape special characters in league name to prevent Markdown issues
             const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
-            responseMessage += `\n${index + 1}. ${safeName}`
+            
+            // Detect league type
+            let leagueType = ''
+            if (league.settings?.best_ball === 1) {
+              leagueType = ' (BestBall)'
+            } else if (league.settings?.type === 2) {
+              leagueType = ' (Dynasty)'
+            } else if (league.name.toLowerCase().includes('dynasty')) {
+              leagueType = ' (Dynasty)'
+            } else if (league.name.toLowerCase().includes('bestball') || league.name.toLowerCase().includes('best ball')) {
+              leagueType = ' (BestBall)'
+            }
+            
+            responseMessage += `\n${index + 1}. ${safeName}${leagueType}`
           })
           
           if (leagues.length > 5) {
@@ -120,7 +133,7 @@ export async function POST(request: NextRequest) {
           const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
           
           if (supabaseUrl && supabaseKey) {
-            // Simple upsert to users table
+            // First, try to upsert user
             const userUpsertResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
               method: 'POST',
               headers: {
@@ -130,14 +143,97 @@ export async function POST(request: NextRequest) {
                 'Prefer': 'resolution=merge-duplicates'
               },
               body: JSON.stringify({
-                tg_user_id: chatId,
-                platform: 'telegram'
+                "tgUserId": BigInt(chatId).toString(),
+                platform: 'telegram',
+                "createdAt": new Date().toISOString(),
+                "updatedAt": new Date().toISOString()
               })
             })
             
-            if (userUpsertResponse.ok) {
-              console.log(`=== SUPABASE SAVE SUCCESSFUL ===`)
-              dbSaveResult = true
+            console.log(`=== USER UPSERT STATUS: ${userUpsertResponse.status} ===`)
+            if (!userUpsertResponse.ok) {
+              const errorText = await userUpsertResponse.text()
+              console.error('User upsert error:', errorText)
+            }
+            
+            // Get the user record to get the internal user ID
+            const userLookupResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=id`, {
+              method: 'GET',
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userLookupResponse.ok) {
+              const userLookupData = await userLookupResponse.json()
+              console.log(`=== USER LOOKUP RESULT: ${JSON.stringify(userLookupData)} ===`)
+              
+              if (userLookupData && userLookupData.length > 0) {
+                const userId = userLookupData[0].id
+                
+                // Now save provider info
+                const providerUpsertResponse = await fetch(`${supabaseUrl}/rest/v1/providers`, {
+                  method: 'POST',
+                  headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                  },
+                  body: JSON.stringify({
+                    userId: userId,
+                    provider: 'sleeper',
+                    providerUsername: userData.username || username,
+                    providerUserId: userData.user_id,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  })
+                })
+                
+                console.log(`=== PROVIDER UPSERT STATUS: ${providerUpsertResponse.status} ===`)
+                if (!providerUpsertResponse.ok) {
+                  const errorText = await providerUpsertResponse.text()
+                  console.error('Provider upsert error:', errorText)
+                }
+                
+                // Save league information
+                for (const league of leagues.slice(0, 3)) {
+                  try {
+                    // First create/update league
+                    const leagueUpsertResponse = await fetch(`${supabaseUrl}/rest/v1/leagues`, {
+                      method: 'POST',
+                      headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                      },
+                      body: JSON.stringify({
+                        provider: 'sleeper',
+                        providerLeagueId: league.league_id,
+                        name: league.name,
+                        season: 2024,
+                        sport: 'nfl',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                      })
+                    })
+                    
+                    console.log(`=== LEAGUE UPSERT STATUS: ${leagueUpsertResponse.status} ===`)
+                    if (!leagueUpsertResponse.ok) {
+                      const errorText = await leagueUpsertResponse.text()
+                      console.error('League upsert error:', errorText)
+                    }
+                  } catch (leagueError) {
+                    console.error('League save error:', leagueError)
+                  }
+                }
+                
+                console.log(`=== SUPABASE SAVE SUCCESSFUL ===`)
+                dbSaveResult = true
+              }
             }
           }
         } catch (dbError) {
