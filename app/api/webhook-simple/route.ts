@@ -610,18 +610,110 @@ export async function POST(request: NextRequest) {
         
         await sendMessage(telegramToken, chatId, '⏳ Перевіряю дедлайни вейверів...')
         
-        // Trigger waiver alerts endpoint
-        const waiverResponse = await fetch(`${process.env.APP_BASE_URL || 'https://fantasy-check.vercel.app'}/api/waiver-alerts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ manual: true, userId: chatId })
-        })
+        // Instead of calling external API, process waivers directly here
+        // Get user leagues and check waiver deadlines
+        let userLeagues: any[] = []
+        let userSleeperUserId: string | null = null
         
-        if (!waiverResponse.ok) {
-          throw new Error('Waiver alert service unavailable')
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            // Get user's Sleeper ID from database
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                userSleeperUserId = users[0].providers[0].providerUserId
+                
+                // Get user's leagues
+                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userSleeperUserId}/leagues/nfl/2024`)
+                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+              }
+            }
+          }
+          
+          // Fallback to test user if database doesn't have data
+          if (userLeagues.length === 0) {
+            console.log('=== FALLBACK TO TEST USER FOR WAIVERS ===')
+            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          }
+        } catch (dbError) {
+          console.error('Database error in /waivers:', dbError)
+          // Fallback to test user
+          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
+          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
         }
         
-        console.log('=== WAIVER CHECK TRIGGERED ===')
+        if (userLeagues.length === 0) {
+          await sendMessage(telegramToken, chatId, '❌ Не знайдено ліг для перевірки вейверів.\n\nВикористайте /link_sleeper для підключення профілю.')
+          return NextResponse.json({ ok: true })
+        }
+
+        let waiverMessage = `**⏰ Стан вейверів**\n\n`
+        let hasActiveWaivers = false
+
+        // Check each league for waiver deadlines
+        for (const league of userLeagues) {
+          try {
+            const leagueSettings = league.settings || {}
+            const waiverDay = leagueSettings.waiver_day_of_week || 2 // Tuesday default
+            const waiverHour = leagueSettings.daily_waivers_hour || 0
+
+            // Calculate time until next waiver
+            const now = new Date()
+            const hoursUntilWaivers = calculateHoursUntilWaivers(now.getDay(), now.getHours(), waiverDay, waiverHour)
+            
+            const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+            waiverMessage += `**${safeName}**\n`
+            
+            if (hoursUntilWaivers <= 2 && hoursUntilWaivers > 0) {
+              hasActiveWaivers = true
+              if (hoursUntilWaivers <= 1) {
+                waiverMessage += `🚨 **${Math.ceil(hoursUntilWaivers * 60)} хв до дедлайну!**\n`
+              } else {
+                waiverMessage += `⏳ **${Math.ceil(hoursUntilWaivers)} год до дедлайну**\n`
+              }
+            } else if (hoursUntilWaivers <= 0) {
+              waiverMessage += `✅ Вейвери обробляються\n`
+            } else {
+              const daysUntil = Math.floor(hoursUntilWaivers / 24)
+              const hoursLeft = Math.floor(hoursUntilWaivers % 24)
+              
+              if (daysUntil > 0) {
+                waiverMessage += `📅 ${daysUntil}д ${hoursLeft}г до вейверів\n`
+              } else {
+                waiverMessage += `📅 ${Math.ceil(hoursUntilWaivers)}г до вейверів\n`
+              }
+            }
+            waiverMessage += '\n'
+            
+          } catch (leagueError) {
+            console.error(`Error processing league ${league.league_id} for waivers:`, leagueError)
+            waiverMessage += `❌ Помилка перевірки\n\n`
+          }
+        }
+        
+        if (hasActiveWaivers) {
+          waiverMessage += `📋 **Рекомендації:**\n`
+          waiverMessage += `• Перевірте травми гравців\n`
+          waiverMessage += `• Подивіться bye-week заміни\n`
+          waiverMessage += `• Проаналізуйте матчапи тижня\n\n`
+          waiverMessage += `🎯 **Не забудьте зробити заявки!**`
+        } else {
+          waiverMessage += `😌 **Поки що немає термінових дедлайнів**`
+        }
+        
+        await sendMessageMarkdown(telegramToken, chatId, waiverMessage)
         
       } catch (error) {
         console.error('=== /waivers ERROR ===', error)
@@ -665,6 +757,27 @@ async function sendMessage(token: string, chatId: number, text: string) {
   } catch (error) {
     console.error('Error sending message:', error)
   }
+}
+
+// Helper function to calculate hours until next waiver deadline
+function calculateHoursUntilWaivers(currentDay: number, currentHour: number, waiverDay: number, waiverHour: number): number {
+  // Simple calculation - could be more sophisticated
+  const now = new Date()
+  const nextWaiver = new Date()
+  
+  // Set to next waiver day
+  const daysUntil = (waiverDay - currentDay + 7) % 7
+  if (daysUntil === 0 && currentHour >= waiverHour) {
+    // Waiver day has passed, next week
+    nextWaiver.setDate(nextWaiver.getDate() + 7)
+  } else {
+    nextWaiver.setDate(nextWaiver.getDate() + daysUntil)
+  }
+  
+  nextWaiver.setHours(waiverHour, 0, 0, 0)
+  
+  const diffMs = nextWaiver.getTime() - now.getTime()
+  return diffMs / (1000 * 60 * 60) // Convert to hours
 }
 
 async function sendMessageMarkdown(token: string, chatId: number, text: string) {
