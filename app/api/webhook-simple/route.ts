@@ -40,11 +40,22 @@ export async function POST(request: NextRequest) {
       
       await sendMessage(telegramToken, chatId, `🔍 Шукаю користувача **${username}** в Sleeper...`)
       try {
-        // Direct Sleeper API call using the provided username
-        const userResponse = await fetch(`https://api.sleeper.app/v1/user/${username}`)
+        console.log(`=== CALLING SLEEPER API FOR USER: ${username} ===`)
+        
+        // Direct Sleeper API call using the provided username with timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        
+        const userResponse = await fetch(`https://api.sleeper.app/v1/user/${username}`, {
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        
+        console.log(`=== USER API RESPONSE STATUS: ${userResponse.status} ===`)
         
         if (!userResponse.ok) {
           if (userResponse.status === 404) {
+            console.log(`=== USER NOT FOUND: ${username} ===`)
             await sendMessage(telegramToken, chatId, `❌ **Користувача не знайдено**\\n\\nКористувача "${username}" не існує в Sleeper.\\n\\n✅ **Перевірте:**\\n• Правильність написання нікнейму\\n• Чи існує такий профіль в Sleeper\\n\\n💡 **Підказка:** Нікнейм чутливий до регістру`)
             return NextResponse.json({ ok: true })
           }
@@ -52,15 +63,27 @@ export async function POST(request: NextRequest) {
         }
         
         const userData = await userResponse.json() as any
+        console.log(`=== USER DATA RECEIVED: ${userData?.user_id} ===`)
         
         if (!userData || !userData.user_id) {
+          console.log(`=== INVALID USER DATA ===`)
           await sendMessage(telegramToken, chatId, `❌ **Помилка отримання даних**\\n\\nНе вдалося отримати інформацію про користувача "${username}".\\n\\nСпробуйте пізніше.`)
           return NextResponse.json({ ok: true })
         }
         
-        // Get user's leagues for current season (2024)
-        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userData.user_id}/leagues/nfl/2024`)
+        // Get user's leagues for current season (2024) with timeout
+        console.log(`=== CALLING LEAGUES API FOR USER ID: ${userData.user_id} ===`)
+        const leaguesController = new AbortController()
+        const leaguesTimeoutId = setTimeout(() => leaguesController.abort(), 10000)
+        
+        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userData.user_id}/leagues/nfl/2024`, {
+          signal: leaguesController.signal
+        })
+        clearTimeout(leaguesTimeoutId)
+        
+        console.log(`=== LEAGUES API RESPONSE STATUS: ${leaguesResponse.status} ===`)
         const leagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+        console.log(`=== LEAGUES COUNT: ${leagues.length} ===`)
         
         const displayName = userData.display_name || userData.username || username
         const avatar = userData.avatar ? `https://sleepercdn.com/avatars/thumbs/${userData.avatar}` : null
@@ -86,11 +109,25 @@ export async function POST(request: NextRequest) {
         
         responseMessage += `\\n\\n🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!\\n\\n💬 **Питання?** @anton_kravchuk23`
         
+        console.log(`=== SENDING FINAL MESSAGE ===`)
         await sendMessage(telegramToken, chatId, responseMessage)
+        console.log(`=== MESSAGE SENT SUCCESSFULLY ===`)
         
       } catch (error) {
-        console.error('Sleeper API error:', error)
-        await sendMessage(telegramToken, chatId, `❌ **Помилка з'єднання**\\n\\nНе вдалося підключитися до Sleeper API.\\n\\n🔄 **Спробуйте:**\\n• Повторити через кілька хвилин\\n• Перевірити правильність нікнейму\\n\\n💬 **Проблеми?** @anton_kravchuk23`)
+        console.error('=== SLEEPER API ERROR ===', error)
+        
+        let errorMessage = `❌ **Помилка з'єднання**\\n\\nНе вдалося підключитися до Sleeper API.`
+        
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            errorMessage = `❌ **Тайм-аут запиту**\\n\\nЗапит до Sleeper API перевищив час очікування.`
+          }
+          console.error('Error details:', error.message)
+        }
+        
+        errorMessage += `\\n\\n🔄 **Спробуйте:**\\n• Повторити через кілька хвилин\\n• Перевірити правильність нікнейму\\n\\n💬 **Проблеми?** @anton_kravchuk23`
+        
+        await sendMessage(telegramToken, chatId, errorMessage)
       }
     } else if (text === '/help') {
       const helpMessage = `🔧 **Fantasy Check - Довідка**
