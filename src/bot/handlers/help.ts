@@ -13,7 +13,27 @@ export async function handleHelp(ctx: Context): Promise<void> {
 
     logger.info({ userId }, 'User requested help');
 
-    await ctx.reply('🔥 DEBUGGING VERSION - Help command working! Deployment timestamp: ' + new Date().toISOString());
+    const helpMessage = `🔧 **Fantasy Check - Довідка**
+
+🏈 **Основні команди:**
+• /start - Почати роботу з ботом
+• /help - Показати цю довідку
+• /link_sleeper <нік> - Підключити Sleeper профіль
+
+🏆 **Управління лігами:**
+• /leagues - Переглянути мої ліги
+• /today - Дайджест на сьогодні
+
+⚙️ **Налаштування:**
+• /timezone - Змінити часовий пояс
+• /lang - Змінити мову
+• /feedback - Надіслати відгук
+
+📱 **Бот працює на:** https://fantasy-check.vercel.app/
+
+💬 **Підтримка:** @ak_papasoft`;
+
+    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
 
   } catch (error) {
     logger.error({

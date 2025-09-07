@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     
     // Import handlers - with fallbacks for database connection issues
     const { handleStart } = await import('../../../src/bot/handlers/start').catch(() => ({ handleStart: async (ctx: any) => ctx.reply('🚀 Fantasy Check Bot працює! Ласкаво просимо!') }))
-    const { handleHelp } = await import('../../../src/bot/handlers/help').catch(() => ({ handleHelp: async (ctx: any) => ctx.reply('🔧 **Доступні команди:**\n• /start - Почати роботу\n• /help - Довідка\n• /link_sleeper <нік> - Підключити Sleeper') }))
+    const { handleHelp } = await import('../../../src/bot/handlers/help')
     
     // Simplified link_sleeper handler without database
     const handleLinkSleeper = async (ctx: any) => {
@@ -38,22 +38,56 @@ export async function POST(request: NextRequest) {
       await ctx.reply(`✅ Спробую підключити користувача "${username}"...\n\n🔄 База даних тимчасово недоступна. Розробники працюють над відновленням функціональності.\n\nПоки що можете скористатись командами:\n• /help - Довідка\n• /start - Перезапуск бота`)
     }
     
-    // Import other handlers with fallbacks
-    const { handleLeagues, handleLeagueCallback } = await import('../../../src/bot/handlers/leagues').catch(() => ({ 
-      handleLeagues: async (ctx: any) => ctx.reply('🏈 Функція ліг тимчасово недоступна'),
-      handleLeagueCallback: async (ctx: any) => ctx.reply('Функція тимчасово недоступна')
-    }))
-    const { handleToday } = await import('../../../src/bot/handlers/today').catch(() => ({ handleToday: async (ctx: any) => ctx.reply('📊 Денний дайджест тимчасово недоступний') }))
-    const { handleTimezone, handleTimezoneInput } = await import('../../../src/bot/handlers/timezone').catch(() => ({ 
-      handleTimezone: async (ctx: any) => ctx.reply('🕐 Функція часового поясу тимчасово недоступна'),
-      handleTimezoneInput: async (ctx: any) => {}
-    }))
-    const { handleFeedback, handleFeedbackMessage, isUserInFeedbackMode } = await import('../../../src/bot/handlers/feedback').catch(() => ({ 
-      handleFeedback: async (ctx: any) => ctx.reply('💬 Для зв\'язку з розробниками напишіть: @ak_papasoft'),
-      handleFeedbackMessage: async (ctx: any) => {},
-      isUserInFeedbackMode: () => false
-    }))
-    const { handleLanguage } = await import('../../../src/bot/handlers/language').catch(() => ({ handleLanguage: async (ctx: any) => ctx.reply('🌐 Мова інтерфейсу: Українська') }))
+    // Improved fallback handlers
+    const handleLeagues = async (ctx: any) => {
+      await ctx.reply('🏈 **Мої ліги**\n\n🔄 Функція ліг тимчасово недоступна через проблеми з базою даних.\n\n📝 **Що можете зробити:**\n• Спочатку використайте /link_sleeper <нік> для підключення профілю\n• Після відновлення БД ваші ліги автоматично завантажяться\n\n💬 **Питання?** Пишіть @ak_papasoft', { parse_mode: 'Markdown' })
+    }
+    
+    const handleLeagueCallback = async (ctx: any) => {
+      await ctx.reply('🔄 Функція тимчасово недоступна')
+    }
+    
+    const handleToday = async (ctx: any) => {
+      const todayMessage = `📊 **Дайджест на сьогодні**
+
+🗓️ **${new Date().toLocaleDateString('uk-UA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}**
+
+🔄 Функція дайджесту тимчасово недоступна через проблеми з базою даних.
+
+🏈 **Що буде доступно після відновлення:**
+• Аналіз стартового складу
+• Інформація про травми гравців
+• Рекомендації щодо заміни гравців
+• Статистика опонентів
+
+💡 **Підказка:** Використайте /link_sleeper для підключення профілю, щоб після відновлення отримувати персоналізовані дайджести.
+
+💬 **Питання?** @ak_papasoft`
+      
+      await ctx.reply(todayMessage, { parse_mode: 'Markdown' })
+    }
+    
+    const handleTimezone = async (ctx: any) => {
+      await ctx.reply('🕐 **Налаштування часового поясу**\n\n🔄 Функція тимчасово недоступна.\n\n📍 **Поточний пояс:** Europe/Kiev (UTC+2)\n\n💬 **Потрібна допомога?** @ak_papasoft', { parse_mode: 'Markdown' })
+    }
+    
+    const handleTimezoneInput = async (ctx: any) => {
+      // Silent fallback for timezone input
+    }
+    
+    const handleFeedback = async (ctx: any) => {
+      await ctx.reply('💬 **Зв\'язок з розробниками**\n\n📩 Для відгуків, пропозицій або звітів про помилки пишіть напряму: @ak_papasoft\n\n🔧 **Що можете повідомити:**\n• Помилки в роботі бота\n• Ідеї для покращення\n• Проблеми з командами\n• Пропозиції нових функцій\n\n⚡ Ми намагаємося відповісти протягом доби!', { parse_mode: 'Markdown' })
+    }
+    
+    const handleFeedbackMessage = async (ctx: any) => {
+      // Silent fallback
+    }
+    
+    const isUserInFeedbackMode = () => false
+    
+    const handleLanguage = async (ctx: any) => {
+      await ctx.reply('🌐 **Мова інтерфейсу**\n\n🇺🇦 Поточна мова: **Українська**\n\n🔄 Функція зміни мови тимчасово недоступна.\n\n💡 **Підтримуються мови:**\n• 🇺🇦 Українська\n• 🇺🇸 English\n\n💬 **Потрібна допомога?** @ak_papasoft', { parse_mode: 'Markdown' })
+    }
     
     // Setup command handlers
     bot.command('start', handleStart)
