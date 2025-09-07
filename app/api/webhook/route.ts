@@ -16,7 +16,30 @@ export async function POST(request: NextRequest) {
     
     // Import handlers - with fallbacks for database connection issues
     const { handleStart } = await import('../../../src/bot/handlers/start').catch(() => ({ handleStart: async (ctx: any) => ctx.reply('🚀 Fantasy Check Bot працює! Ласкаво просимо!') }))
-    const { handleHelp } = await import('../../../src/bot/handlers/help')
+    const { handleHelp } = await import('../../../src/bot/handlers/help').catch(() => ({
+      handleHelp: async (ctx: any) => {
+        const helpMessage = `🔧 **Fantasy Check - Довідка**
+
+🏈 **Основні команди:**
+• /start - Почати роботу з ботом
+• /help - Показати цю довідку
+• /link_sleeper <нік> - Підключити Sleeper профіль
+
+🏆 **Управління лігами:**
+• /leagues - Переглянути мої ліги
+• /today - Дайджест на сьогодні
+
+⚙️ **Налаштування:**
+• /timezone - Змінити часовий пояс
+• /lang - Змінити мову
+• /feedback - Надіслати відгук
+
+📱 **Бот працює на:** https://fantasy-check.vercel.app/
+
+💬 **Підтримка:** @ak_papasoft`
+        await ctx.reply(helpMessage, { parse_mode: 'Markdown' })
+      }
+    }))
     
     // Working link_sleeper handler with direct Sleeper API integration
     const handleLinkSleeper = async (ctx: any) => {
