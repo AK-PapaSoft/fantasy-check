@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
         }
         
         if (userLeagues.length === 0) {
-          await sendMessage(telegramToken, chatId, '❌ Не знайдено активних ліг.\n\nВикористайте /link_sleeper <нік> для підключення профілю')
+          await sendMessageMarkdown(telegramToken, chatId, '❌ **Немає підключених ліг**\n\n🔗 Використайте команду:\n`/link_sleeper <ваш_нік>`\n\n📝 **Приклад**:\n`/link_sleeper Disgusting23`\n\n💡 Після підключення ви зможете переглядати свої матчі!')
           return NextResponse.json({ ok: true })
         }
         
@@ -434,9 +434,8 @@ export async function POST(request: NextRequest) {
                 matchupGroups[matchup.matchup_id].push(matchup)
               })
               
-              // Process all matchups, prioritizing user's matchup
-              const allMatchups = []
-              let userMatchup = null
+              // Find only user's matchups
+              const userMatchups = []
               
               for (const matchupId in matchupGroups) {
                 const matchupTeams = matchupGroups[matchupId]
@@ -444,21 +443,22 @@ export async function POST(request: NextRequest) {
                   const team1 = matchupTeams[0]
                   const team2 = matchupTeams[1]
                   
-                  const matchupData = { team1, team2, matchupId }
-                  
                   // Check if this is user's matchup
                   const isUserMatchup = userRosterId === team1.roster_id || userRosterId === team2.roster_id
                   
                   if (isUserMatchup) {
-                    userMatchup = matchupData
-                  } else {
-                    allMatchups.push(matchupData)
+                    userMatchups.push({ team1, team2, matchupId })
                   }
                 }
               }
               
-              // Show user's matchup first, then others
-              const matchupsToShow = userMatchup ? [userMatchup, ...allMatchups.slice(0, 1)] : allMatchups.slice(0, 2)
+              // Show only user's matchups
+              const matchupsToShow = userMatchups
+              
+              if (matchupsToShow.length === 0) {
+                // User has no matchup in this league this week
+                todayMessage += `\n📝 **Ваша команда**: не грає цього тижня\n`
+              }
               
               matchupsToShow.forEach((matchupData, index) => {
                 const { team1, team2 } = matchupData
@@ -478,18 +478,26 @@ export async function POST(request: NextRequest) {
                 const displayTeam1 = formatTeamName(team1Name, isUserTeam1)
                 const displayTeam2 = formatTeamName(team2Name, isUserTeam2)
                 
-                todayMessage += `\n⚔️ ${displayTeam1} vs ${displayTeam2}\n`
-                todayMessage += `📊 ${displayTeam1}: **${team1.points}** очок\n`
-                todayMessage += `📊 ${displayTeam2}: **${team2.points}** очок\n`
+                // Enhanced display for user's personal matchup
+                const userTeam = isUserTeam1 ? team1 : team2
+                const opponentTeam = isUserTeam1 ? team2 : team1
+                const userTeamName = isUserTeam1 ? team1Name : team2Name
+                const opponentName = isUserTeam1 ? team2Name : team1Name
                 
-                if (team1.points > team2.points) {
-                  const winner = isUserTeam1 ? `🎉 **ВЕДЕТЕ: ${team1Name}**` : `🏆 **Веде: ${team1Name}**`
-                  todayMessage += `${winner} (+${(team1.points - team2.points).toFixed(1)})\n`
-                } else if (team2.points > team1.points) {
-                  const winner = isUserTeam2 ? `🎉 **ВЕДЕТЕ: ${team2Name}**` : `🏆 **Веде: ${team2Name}**`
-                  todayMessage += `${winner} (+${(team2.points - team1.points).toFixed(1)})\n`
+                todayMessage += `\n🆚 **ВАШ МАТЧ**\n`
+                todayMessage += `👤 **Ви**: ${userTeamName}\n`
+                todayMessage += `🎯 **Суперник**: ${opponentName}\n\n`
+                
+                todayMessage += `📊 **РАХУНОК:**\n`
+                todayMessage += `🌟 **${userTeamName}**: **${userTeam.points.toFixed(1)}** очок\n`
+                todayMessage += `⚔️ **${opponentName}**: **${opponentTeam.points.toFixed(1)}** очок\n\n`
+                
+                if (userTeam.points > opponentTeam.points) {
+                  todayMessage += `🎉 **ВЕДЕТЕ!** (+${(userTeam.points - opponentTeam.points).toFixed(1)} очок)\n`
+                } else if (opponentTeam.points > userTeam.points) {
+                  todayMessage += `😤 **ПРОГРАЄТЕ** (-${(opponentTeam.points - userTeam.points).toFixed(1)} очок)\n`
                 } else {
-                  todayMessage += `🤝 **Нічия!** ${team1.points.toFixed(1)} - ${team2.points.toFixed(1)}\n`
+                  todayMessage += `🤝 **НІЧИЯ!** ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)}\n`
                 }
                 
                 if (index < matchupsToShow.length - 1) {
