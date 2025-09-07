@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         
         // Get user's leagues for current season (2024)
         const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userData.user_id}/leagues/nfl/2024`)
-        const leagues = leaguesResponse.ok ? await leaguesResponse.json() : []
+        const leagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
         
         const displayName = userData.display_name || userData.username || username
         const avatar = userData.avatar ? `https://sleepercdn.com/avatars/thumbs/${userData.avatar}` : null
