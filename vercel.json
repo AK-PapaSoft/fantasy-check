@@ -3,6 +3,14 @@
     {
       "path": "/api/weekly-recap",
       "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/waiver-alerts", 
+      "schedule": "0 22 * * 1"
+    },
+    {
+      "path": "/api/waiver-alerts",
+      "schedule": "0 0 * * 2"
     }
   ]
 }

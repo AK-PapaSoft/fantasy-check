@@ -276,9 +276,10 @@ export async function POST(request: NextRequest) {
 • /help - Показати цю довідку
 • /link_sleeper <нік> - Підключити Sleeper профіль
 
-🏆 Управління лігами:
-• /leagues - Переглянути мої ліги
+🏆 Fantasy функції:
 • /today - Дайджест на сьогодні
+• /leagues - Переглянути мої ліги
+• /waivers - Перевірити дедлайни вейверів
 
 ⚙️ Налаштування:
 • /timezone - Змінити часовий пояс
@@ -356,7 +357,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         
-        let todayMessage = `**📊 Дайджест тижня ${currentWeek}**\n\n`
+        let todayMessage = `**Дайджест тижня ${currentWeek}**\n\n`
         
         // Process all user leagues
         for (let i = 0; i < userLeagues.length; i++) {
@@ -602,6 +603,29 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('=== /leagues ERROR ===', error)
         await sendMessage(telegramToken, chatId, '❌ Помилка при отриманні списку ліг.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
+      }
+    } else if (text === '/waivers') {
+      try {
+        console.log(`=== HANDLING /waivers COMMAND ===`)
+        
+        await sendMessage(telegramToken, chatId, '⏳ Перевіряю дедлайни вейверів...')
+        
+        // Trigger waiver alerts endpoint
+        const waiverResponse = await fetch(`${process.env.APP_BASE_URL || 'https://fantasy-check.vercel.app'}/api/waiver-alerts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ manual: true, userId: chatId })
+        })
+        
+        if (!waiverResponse.ok) {
+          throw new Error('Waiver alert service unavailable')
+        }
+        
+        console.log('=== WAIVER CHECK TRIGGERED ===')
+        
+      } catch (error) {
+        console.error('=== /waivers ERROR ===', error)
+        await sendMessage(telegramToken, chatId, '❌ Помилка при перевірці вейверів.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
       }
     } else if (text === '/start') {
       await sendMessage(telegramToken, chatId, '🚀 Fantasy Check Bot працює! Ласкаво просимо!')
