@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         
-        let todayMessage = `🏈 **СЬОГОДНІШНІЙ ДАЙДЖЕСТ**\n📅 **Тиждень ${currentWeek}, NFL ${season}**\n\n`
+        let todayMessage = `**📊 Дайджест тижня ${currentWeek}**\n\n`
         
         // Process up to 3 leagues
         for (let i = 0; i < Math.min(userLeagues.length, 3); i++) {
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
             
             if (matchups.length > 0) {
               const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
-              todayMessage += `🏆 **${safeName}**\n`
+              todayMessage += `**${safeName}**\n`
               
               // Group matchups by matchup_id
               const matchupGroups: { [key: number]: any[] } = {}
@@ -457,7 +457,7 @@ export async function POST(request: NextRequest) {
               
               if (matchupsToShow.length === 0) {
                 // User has no matchup in this league this week
-                todayMessage += `\n📝 **Ваша команда**: не грає цього тижня\n`
+                todayMessage += `Не граєте цього тижня\n`
               }
               
               matchupsToShow.forEach((matchupData, index) => {
@@ -478,46 +478,41 @@ export async function POST(request: NextRequest) {
                 const displayTeam1 = formatTeamName(team1Name, isUserTeam1)
                 const displayTeam2 = formatTeamName(team2Name, isUserTeam2)
                 
-                // Enhanced display for user's personal matchup
+                // Compact display for user's personal matchup
                 const userTeam = isUserTeam1 ? team1 : team2
                 const opponentTeam = isUserTeam1 ? team2 : team1
                 const userTeamName = isUserTeam1 ? team1Name : team2Name
                 const opponentName = isUserTeam1 ? team2Name : team1Name
                 
-                todayMessage += `\n🆚 **ВАШ МАТЧ**\n`
-                todayMessage += `👤 **Ви**: ${userTeamName}\n`
-                todayMessage += `🎯 **Суперник**: ${opponentName}\n\n`
+                const scoreDiff = userTeam.points - opponentTeam.points
+                let status = ''
                 
-                todayMessage += `📊 **РАХУНОК:**\n`
-                todayMessage += `🌟 **${userTeamName}**: **${userTeam.points.toFixed(1)}** очок\n`
-                todayMessage += `⚔️ **${opponentName}**: **${opponentTeam.points.toFixed(1)}** очок\n\n`
-                
-                if (userTeam.points > opponentTeam.points) {
-                  todayMessage += `🎉 **ВЕДЕТЕ!** (+${(userTeam.points - opponentTeam.points).toFixed(1)} очок)\n`
-                } else if (opponentTeam.points > userTeam.points) {
-                  todayMessage += `😤 **ПРОГРАЄТЕ** (-${(opponentTeam.points - userTeam.points).toFixed(1)} очок)\n`
+                if (scoreDiff > 0) {
+                  status = `**Ведете** +${scoreDiff.toFixed(1)}`
+                } else if (scoreDiff < 0) {
+                  status = `**Програєте** ${scoreDiff.toFixed(1)}`
                 } else {
-                  todayMessage += `🤝 **НІЧИЯ!** ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)}\n`
+                  status = `**Нічия**`
                 }
                 
-                if (index < matchupsToShow.length - 1) {
-                  todayMessage += '\n'
-                }
+                todayMessage += `vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status})\n`
               })
             }
           } catch (leagueError) {
             console.error(`Error processing league ${league.league_id}:`, leagueError)
           }
+          
+          // Add line break between leagues
+          if (i < Math.min(userLeagues.length, 3) - 1) {
+            todayMessage += '\n'
+          }
         }
         
         if (userLeagues.length > 3) {
-          todayMessage += `📋 ... і ще **${userLeagues.length - 3} ліг**\n\n`
+          todayMessage += `\n... і ще **${userLeagues.length - 3} ліг**`
         }
         
-        todayMessage += `━━━━━━━━━━━━━━━━━━━━\n`
-        todayMessage += `🔄 **Оновлено**: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
-        todayMessage += `⏰ Київський час\n\n`
-        todayMessage += `💬 **Підтримка**: @anton_kravchuk23`
+        todayMessage += `\n\n**Підтримка** (і психологічна) від @anton_kravchuk23`
         
         await sendMessageMarkdown(telegramToken, chatId, todayMessage)
         
