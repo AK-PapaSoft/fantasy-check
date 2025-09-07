@@ -18,24 +18,81 @@ export async function POST(request: NextRequest) {
     const { handleStart } = await import('../../../src/bot/handlers/start').catch(() => ({ handleStart: async (ctx: any) => ctx.reply('🚀 Fantasy Check Bot працює! Ласкаво просимо!') }))
     const { handleHelp } = await import('../../../src/bot/handlers/help')
     
-    // Simplified link_sleeper handler without database
+    // Working link_sleeper handler with direct Sleeper API integration
     const handleLinkSleeper = async (ctx: any) => {
       const message = ctx.message && 'text' in ctx.message ? ctx.message.text : ''
       const args = message.split(' ').slice(1)
       
       if (args.length === 0 || !args[0]) {
-        await ctx.reply('❌ Формат команди: /link_sleeper <нікнейм>\n\nПриклад: /link_sleeper Disgusting23')
+        await ctx.reply('❌ **Формат команди:** `/link_sleeper <нікнейм>`\n\n📝 **Приклад:** `/link_sleeper Disgusting23`', { parse_mode: 'Markdown' })
         return
       }
       
       const username = args[0].trim()
       
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        await ctx.reply('❌ Нікнейм може містити лише букви, цифри та знак підкреслення')
+        await ctx.reply('❌ **Помилка формату**\n\nНікнейм може містити лише:\n• Латинські букви (a-z, A-Z)\n• Цифри (0-9)\n• Знак підкреслення (_)', { parse_mode: 'Markdown' })
         return
       }
       
-      await ctx.reply(`✅ Спробую підключити користувача "${username}"...\n\n🔄 База даних тимчасово недоступна. Розробники працюють над відновленням функціональності.\n\nПоки що можете скористатись командами:\n• /help - Довідка\n• /start - Перезапуск бота`)
+      await ctx.reply(`🔍 Шукаю користувача **${username}** в Sleeper...`, { parse_mode: 'Markdown' })
+      
+      try {
+        // Direct Sleeper API call
+        const userResponse = await fetch(`https://api.sleeper.app/v1/user/${username}`)
+        
+        if (!userResponse.ok) {
+          if (userResponse.status === 404) {
+            await ctx.reply(`❌ **Користувача не знайдено**\n\nКористувача "${username}" не існує в Sleeper.\n\n✅ **Перевірте:**\n• Правильність написання нікнейму\n• Чи існує такий профіль в Sleeper\n\n💡 **Підказка:** Нікнейм чутливий до регістру`, { parse_mode: 'Markdown' })
+            return
+          }
+          throw new Error(`HTTP ${userResponse.status}`)
+        }
+        
+        const userData = await userResponse.json()
+        
+        if (!userData || !userData.user_id) {
+          await ctx.reply(`❌ **Помилка отримання даних**\n\nНе вдалося отримати інформацію про користувача "${username}".\n\nСпробуйте пізніше.`, { parse_mode: 'Markdown' })
+          return
+        }
+        
+        // Get user's leagues for current season (2024)
+        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userData.user_id}/leagues/nfl/2024`)
+        const leagues = leaguesResponse.ok ? await leaguesResponse.json() : []
+        
+        const displayName = userData.display_name || userData.username || username
+        const avatar = userData.avatar ? `https://sleepercdn.com/avatars/thumbs/${userData.avatar}` : null
+        
+        let responseMessage = `✅ **Користувача знайдено!**\n\n👤 **Профіль:**\n• Ім'я: ${displayName}\n• ID: ${userData.user_id}`
+        
+        if (avatar) {
+          responseMessage += `\n• Аватар: [Переглянути](${avatar})`
+        }
+        
+        if (leagues && leagues.length > 0) {
+          responseMessage += `\n\n🏈 **Ліги NFL 2024 (${leagues.length}):**`
+          leagues.slice(0, 5).forEach((league: any, index: number) => {
+            responseMessage += `\n${index + 1}. ${league.name}`
+          })
+          
+          if (leagues.length > 5) {
+            responseMessage += `\n... і ще ${leagues.length - 5} ліг`
+          }
+        } else {
+          responseMessage += `\n\n🏈 **Ліги NFL 2024:** Не знайдено`
+        }
+        
+        responseMessage += `\n\n🔄 **Статус БД:** Тимчасово недоступна\n💾 Дані не збережені, але перевірка профілю працює!\n\n💬 **Питання?** @ak_papasoft`
+        
+        await ctx.reply(responseMessage, { 
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true 
+        })
+        
+      } catch (error) {
+        console.error('Sleeper API error:', error)
+        await ctx.reply(`❌ **Помилка з'єднання**\n\nНе вдалося підключитися до Sleeper API.\n\n🔄 **Спробуйте:**\n• Повторити через кілька хвилин\n• Перевірити правильність нікнейму\n\n💬 **Проблеми?** @ak_papasoft`, { parse_mode: 'Markdown' })
+      }
     }
     
     // Improved fallback handlers
