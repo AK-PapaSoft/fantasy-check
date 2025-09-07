@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
           throw new Error(`HTTP ${userResponse.status}`)
         }
         
-        const userData = await userResponse.json()
+        const userData = await userResponse.json() as any
         
         if (!userData || !userData.user_id) {
           await ctx.reply(`❌ **Помилка отримання даних**\n\nНе вдалося отримати інформацію про користувача "${username}".\n\nСпробуйте пізніше.`, { parse_mode: 'Markdown' })
