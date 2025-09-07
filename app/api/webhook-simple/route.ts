@@ -408,7 +408,8 @@ export async function POST(request: NextRequest) {
             rosters.forEach(roster => {
               const owner = leagueUsers.find(user => user.user_id === roster.owner_id)
               if (owner) {
-                const teamName = owner.display_name || `Team ${roster.roster_id}`
+                // Use display_name, fallback to username, then fallback to Team X
+                const teamName = owner.display_name || owner.username || `Team ${roster.roster_id}`
                 teamNames[roster.roster_id] = teamName
                 
                 // Check if this is the user's team
@@ -433,48 +434,68 @@ export async function POST(request: NextRequest) {
                 matchupGroups[matchup.matchup_id].push(matchup)
               })
               
-              // Show top matchups
-              let matchupCount = 0
+              // Process all matchups, prioritizing user's matchup
+              const allMatchups = []
+              let userMatchup = null
+              
               for (const matchupId in matchupGroups) {
-                if (matchupCount >= 2) break // Show max 2 matchups per league
-                
                 const matchupTeams = matchupGroups[matchupId]
                 if (matchupTeams.length === 2) {
                   const team1 = matchupTeams[0]
                   const team2 = matchupTeams[1]
                   
-                  const team1Name = teamNames[team1.roster_id] || `Team ${team1.roster_id}`
-                  const team2Name = teamNames[team2.roster_id] || `Team ${team2.roster_id}`
+                  const matchupData = { team1, team2, matchupId }
                   
-                  // Check if user's team is in this matchup
-                  const isUserTeam1 = userRosterId === team1.roster_id
-                  const isUserTeam2 = userRosterId === team2.roster_id
+                  // Check if this is user's matchup
+                  const isUserMatchup = userRosterId === team1.roster_id || userRosterId === team2.roster_id
                   
-                  // Special formatting for user's team
-                  const formatTeamName = (name: string, isUser: boolean) => {
-                    return isUser ? `🌟 **${name}** (ВИ)` : `**${name}**`
-                  }
-                  
-                  const displayTeam1 = formatTeamName(team1Name, isUserTeam1)
-                  const displayTeam2 = formatTeamName(team2Name, isUserTeam2)
-                  
-                  todayMessage += `\n⚔️ ${displayTeam1} vs ${displayTeam2}\n`
-                  todayMessage += `📊 ${displayTeam1}: **${team1.points}** очок\n`
-                  todayMessage += `📊 ${displayTeam2}: **${team2.points}** очок\n`
-                  
-                  if (team1.points > team2.points) {
-                    const winner = isUserTeam1 ? `🎉 **ВЕДЕТЕ: ${team1Name}**` : `🏆 **Веде: ${team1Name}**`
-                    todayMessage += `${winner} (+${(team1.points - team2.points).toFixed(1)})\n`
-                  } else if (team2.points > team1.points) {
-                    const winner = isUserTeam2 ? `🎉 **ВЕДЕТЕ: ${team2Name}**` : `🏆 **Веде: ${team2Name}**`
-                    todayMessage += `${winner} (+${(team2.points - team1.points).toFixed(1)})\n`
+                  if (isUserMatchup) {
+                    userMatchup = matchupData
                   } else {
-                    todayMessage += `🤝 **Нічия!** ${team1.points.toFixed(1)} - ${team2.points.toFixed(1)}\n`
+                    allMatchups.push(matchupData)
                   }
-                  todayMessage += '\n'
-                  matchupCount++
                 }
               }
+              
+              // Show user's matchup first, then others
+              const matchupsToShow = userMatchup ? [userMatchup, ...allMatchups.slice(0, 1)] : allMatchups.slice(0, 2)
+              
+              matchupsToShow.forEach((matchupData, index) => {
+                const { team1, team2 } = matchupData
+                
+                const team1Name = teamNames[team1.roster_id] || `Team ${team1.roster_id}`
+                const team2Name = teamNames[team2.roster_id] || `Team ${team2.roster_id}`
+                
+                // Check if user's team is in this matchup
+                const isUserTeam1 = userRosterId === team1.roster_id
+                const isUserTeam2 = userRosterId === team2.roster_id
+                
+                // Special formatting for user's team
+                const formatTeamName = (name: string, isUser: boolean) => {
+                  return isUser ? `**${name}** (ВИ) 🌟` : `**${name}**`
+                }
+                
+                const displayTeam1 = formatTeamName(team1Name, isUserTeam1)
+                const displayTeam2 = formatTeamName(team2Name, isUserTeam2)
+                
+                todayMessage += `\n⚔️ ${displayTeam1} vs ${displayTeam2}\n`
+                todayMessage += `📊 ${displayTeam1}: **${team1.points}** очок\n`
+                todayMessage += `📊 ${displayTeam2}: **${team2.points}** очок\n`
+                
+                if (team1.points > team2.points) {
+                  const winner = isUserTeam1 ? `🎉 **ВЕДЕТЕ: ${team1Name}**` : `🏆 **Веде: ${team1Name}**`
+                  todayMessage += `${winner} (+${(team1.points - team2.points).toFixed(1)})\n`
+                } else if (team2.points > team1.points) {
+                  const winner = isUserTeam2 ? `🎉 **ВЕДЕТЕ: ${team2Name}**` : `🏆 **Веде: ${team2Name}**`
+                  todayMessage += `${winner} (+${(team2.points - team1.points).toFixed(1)})\n`
+                } else {
+                  todayMessage += `🤝 **Нічия!** ${team1.points.toFixed(1)} - ${team2.points.toFixed(1)}\n`
+                }
+                
+                if (index < matchupsToShow.length - 1) {
+                  todayMessage += '\n'
+                }
+              })
             }
           } catch (leagueError) {
             console.error(`Error processing league ${league.league_id}:`, leagueError)
@@ -490,7 +511,7 @@ export async function POST(request: NextRequest) {
         todayMessage += `⏰ Київський час\n\n`
         todayMessage += `💬 **Підтримка**: @anton_kravchuk23`
         
-        await sendMessage(telegramToken, chatId, todayMessage)
+        await sendMessageMarkdown(telegramToken, chatId, todayMessage)
         
       } catch (error) {
         console.error('=== /today ERROR ===', error)
@@ -615,5 +636,35 @@ async function sendMessage(token: string, chatId: number, text: string) {
     }
   } catch (error) {
     console.error('Error sending message:', error)
+  }
+}
+
+async function sendMessageMarkdown(token: string, chatId: number, text: string) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true
+      }),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Failed to send markdown message:', errorText)
+      // Fallback to plain text if markdown fails
+      await sendMessage(token, chatId, text.replace(/\*\*/g, '').replace(/\*/g, ''))
+    } else {
+      console.log('Markdown message sent successfully')
+    }
+  } catch (error) {
+    console.error('Error sending markdown message:', error)
+    // Fallback to plain text
+    await sendMessage(token, chatId, text.replace(/\*\*/g, '').replace(/\*/g, ''))
   }
 }
