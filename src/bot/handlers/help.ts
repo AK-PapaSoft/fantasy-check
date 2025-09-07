@@ -31,7 +31,7 @@ export async function handleHelp(ctx: Context): Promise<void> {
 
 📱 **Бот працює на:** https://fantasy-check.vercel.app/
 
-💬 **Підтримка:** @ak_papasoft`;
+💬 **Підтримка:** @anton_kravchuk23`;
 
     await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
 

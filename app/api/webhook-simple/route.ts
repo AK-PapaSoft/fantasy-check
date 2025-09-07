@@ -110,87 +110,115 @@ export async function POST(request: NextRequest) {
         
         responseMessage += `\\n\\n🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!\\n\\n💬 **Питання?** @anton_kravchuk23`
         
-        // Try to save to database
-        try {
-          console.log(`=== SAVING TO DATABASE ===`)
-          
-          // Create or update user
-          const user = await prisma.user.upsert({
-            where: { tgUserId: BigInt(chatId) },
-            update: {
-              updatedAt: new Date()
-            },
-            create: {
-              tgUserId: BigInt(chatId),
-              platform: 'telegram'
-            }
-          })
-          
-          // Create or update provider
-          await prisma.provider.upsert({
-            where: { 
-              userId_provider: {
-                userId: user.id,
-                provider: 'sleeper'
-              }
-            },
-            update: {
-              providerUsername: userData.username,
-              providerUserId: userData.user_id,
-              updatedAt: new Date()
-            },
-            create: {
-              userId: user.id,
-              provider: 'sleeper',
-              providerUsername: userData.username,
-              providerUserId: userData.user_id
-            }
-          })
-          
-          // Save leagues
-          for (const league of leagues) {
-            const savedLeague = await prisma.league.upsert({
-              where: { providerLeagueId: league.league_id },
+        // Try to save to database with timeout (non-blocking)
+        const saveToDatabase = async () => {
+          try {
+            console.log(`=== SAVING TO DATABASE ===`)
+            
+            // Test database connection first with short timeout
+            const dbTimeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Database timeout')), 5000)
+            )
+            
+            const dbTest = prisma.$queryRaw`SELECT 1`
+            await Promise.race([dbTest, dbTimeout])
+            
+            // Create or update user
+            const user = await prisma.user.upsert({
+              where: { tgUserId: BigInt(chatId) },
               update: {
-                name: league.name,
-                season: 2024,
                 updatedAt: new Date()
               },
               create: {
-                provider: 'sleeper',
-                providerLeagueId: league.league_id,
-                name: league.name,
-                season: 2024,
-                sport: 'nfl'
+                tgUserId: BigInt(chatId),
+                platform: 'telegram'
               }
             })
             
-            // Link user to league
-            await prisma.userLeague.upsert({
-              where: {
-                userId_leagueId: {
+            // Create or update provider
+            await prisma.provider.upsert({
+              where: { 
+                userId_provider: {
                   userId: user.id,
-                  leagueId: savedLeague.id
+                  provider: 'sleeper'
                 }
               },
-              update: {},
+              update: {
+                providerUsername: userData.username,
+                providerUserId: userData.user_id,
+                updatedAt: new Date()
+              },
               create: {
                 userId: user.id,
-                leagueId: savedLeague.id,
-                teamId: '1' // Default team ID, should be updated with actual roster info
+                provider: 'sleeper',
+                providerUsername: userData.username,
+                providerUserId: userData.user_id
               }
             })
+            
+            // Save leagues (limited to prevent timeout)
+            for (const league of leagues.slice(0, 3)) { // Limit to first 3 leagues
+              const savedLeague = await prisma.league.upsert({
+                where: { providerLeagueId: league.league_id },
+                update: {
+                  name: league.name,
+                  season: 2024,
+                  updatedAt: new Date()
+                },
+                create: {
+                  provider: 'sleeper',
+                  providerLeagueId: league.league_id,
+                  name: league.name,
+                  season: 2024,
+                  sport: 'nfl'
+                }
+              })
+              
+              // Link user to league
+              await prisma.userLeague.upsert({
+                where: {
+                  userId_leagueId: {
+                    userId: user.id,
+                    leagueId: savedLeague.id
+                  }
+                },
+                update: {},
+                create: {
+                  userId: user.id,
+                  leagueId: savedLeague.id,
+                  teamId: '1' // Default team ID, should be updated with actual roster info
+                }
+              })
+            }
+            
+            return true
+          } catch (dbError) {
+            console.error('=== DATABASE ERROR ===', dbError)
+            return false
           }
-          
+        }
+        
+        // Try to save to database but don't wait for it
+        const dbPromise = saveToDatabase()
+        let dbSaveResult = false
+        
+        try {
+          dbSaveResult = await Promise.race([
+            dbPromise,
+            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3000))
+          ])
+        } catch (error) {
+          console.error('Database save timeout or error:', error)
+        }
+        
+        if (dbSaveResult) {
           responseMessage = responseMessage.replace(
             '🔄 **Статус БД:** Тимчасово недоступна\\n💾 Дані не збережені, але перевірка профілю працює!',
             '✅ **Статус БД:** Підключено\\n💾 Дані збережено в базі даних!'
           )
-          
           console.log(`=== DATABASE SAVE SUCCESSFUL ===`)
-        } catch (dbError) {
-          console.error('=== DATABASE ERROR ===', dbError)
-          // Keep the original message about DB being unavailable
+        } else {
+          console.log(`=== DATABASE SAVE FAILED OR TIMEOUT ===`)
         }
         
         console.log(`=== SENDING FINAL MESSAGE ===`)
