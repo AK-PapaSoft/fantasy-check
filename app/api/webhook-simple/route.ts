@@ -594,21 +594,18 @@ export async function POST(request: NextRequest) {
               const users = await userResponse.json() as any[]
               if (users.length > 0 && users[0].providers.length > 0) {
                 const sleeperUserId = users[0].providers[0].providerUserId
-                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
-                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+                userLeagues = await getAllUserLeagues(sleeperUserId)
               }
             }
           }
           
           // Fallback
           if (userLeagues.length === 0) {
-            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+            userLeagues = await getAllUserLeagues('986349820359061504')
           }
         } catch (dbError) {
           console.error('Database error in /leagues:', dbError)
-          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          userLeagues = await getAllUserLeagues('986349820359061504')
         }
         
         if (userLeagues.length === 0) {
@@ -805,8 +802,7 @@ export async function POST(request: NextRequest) {
                 userSleeperUserId = users[0].providers[0].providerUserId
                 
                 // Get user's leagues
-                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userSleeperUserId}/leagues/nfl/2024`)
-                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+                userLeagues = await getAllUserLeagues(userSleeperUserId)
               }
             }
           }
@@ -814,14 +810,12 @@ export async function POST(request: NextRequest) {
           // Fallback to test user if database doesn't have data
           if (userLeagues.length === 0) {
             console.log('=== FALLBACK TO TEST USER FOR WAIVERS ===')
-            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+            userLeagues = await getAllUserLeagues('986349820359061504')
           }
         } catch (dbError) {
           console.error('Database error in /waivers:', dbError)
           // Fallback to test user
-          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          userLeagues = await getAllUserLeagues('986349820359061504')
         }
         
         if (userLeagues.length === 0) {
