@@ -656,7 +656,7 @@ export async function POST(request: NextRequest) {
           
           try {
             // Check if this is a pick'em league
-            const isPickemLeague = league.settings?.type === 0
+            const isPickemLeague = league.isPickemLeague || league.sport === 'pickem:nfl'
             
             if (isPickemLeague) {
               // Handle pick'em league in /leagues command
@@ -883,6 +883,19 @@ export async function POST(request: NextRequest) {
         console.error('=== /waivers ERROR ===', error)
         await sendMessage(telegramToken, chatId, '❌ Помилка при перевірці вейверів.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
       }
+    } else if (text === '/timezone') {
+      await sendMessage(telegramToken, chatId, '🌍 **Налаштування часового поясу**\n\nНаразі бот використовує київський час (Europe/Kiev).\n\nДля зміни часового поясу напишіть:\n`/timezone America/New_York`\n`/timezone Europe/London`\n`/timezone America/Los_Angeles`\n\nСписок доступних поясів: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones')
+    } else if (text.startsWith('/timezone ')) {
+      const timezone = text.replace('/timezone ', '').trim()
+      
+      // Validate timezone (basic check)
+      if (timezone.includes('/') && timezone.length > 3) {
+        await sendMessage(telegramToken, chatId, `✅ Часовий пояс встановлено: **${timezone}**\n\n⚠️ *Примітка: Функція зберігання поясу в розробці. Наразі всі сповіщення надходять в київському часі.*`)
+      } else {
+        await sendMessage(telegramToken, chatId, '❌ Невірний формат часового поясу.\n\nПриклад: `/timezone America/New_York`')
+      }
+    } else if (text === '/feedback') {
+      await sendMessage(telegramToken, chatId, '💬 **Зворотний зв\'язок**\n\nДля відгуків, пропозицій або повідомлення про помилки:\n\n📝 Напишіть @anton_kravchuk23\n📧 Email: anton.kravchuk.dev@gmail.com\n\n**Що можна покращити?**\n• Додати нові функції\n• Виправити помилки\n• Покращити повідомлення\n• Додати підтримку інших ліг\n\nВаша думка важлива! 🙏')
     } else if (text === '/start') {
       await sendMessage(telegramToken, chatId, '🚀 Fantasy Check Bot працює! Ласкаво просимо!')
     }
