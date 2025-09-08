@@ -569,36 +569,145 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         
-        let leaguesMessage = `🏈 **Ваші ліги NFL 2024** (${userLeagues.length})\n\n`
+        // Get NFL state for current week
+        const nflStateResponse = await fetch('https://api.sleeper.app/v1/state/nfl')
+        const nflState = nflStateResponse.ok ? await nflStateResponse.json() as any : null
+        const currentWeek = nflState?.week || 1
         
-        userLeagues.forEach((league: any, index: number) => {
-          // Detect league type
-          let leagueType = ''
-          if (league.settings?.best_ball === 1) {
-            leagueType = ' (BestBall)'
-          } else if (league.settings?.type === 2) {
-            leagueType = ' (Dynasty)'
-          } else if (league.name.toLowerCase().includes('dynasty')) {
-            leagueType = ' (Dynasty)'
-          } else if (league.name.toLowerCase().includes('bestball') || league.name.toLowerCase().includes('best ball')) {
-            leagueType = ' (BestBall)'
+        let leaguesMessage = `🏈 **Мої ліги** (${userLeagues.length})\n\n`
+        let userSleeperUserId: string | null = null
+        
+        // Get user's Sleeper ID 
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                userSleeperUserId = users[0].providers[0].providerUserId
+              }
+            }
           }
           
-          const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
-          
-          leaguesMessage += `${index + 1}. **${safeName}**${leagueType}\n`
-          leaguesMessage += `   👥 Команд: ${league.total_rosters}\n`
-          leaguesMessage += `   📊 Статус: ${league.status === 'complete' ? '✅ Завершена' : '🔄 Активна'}\n`
-          if (league.settings?.playoff_teams) {
-            leaguesMessage += `   🏆 Плей-оф: ${league.settings.playoff_teams} команд\n`
+          if (!userSleeperUserId) {
+            userSleeperUserId = '986349820359061504' // Fallback
           }
-          leaguesMessage += '\n'
-        })
+        } catch (dbError) {
+          userSleeperUserId = '986349820359061504' // Fallback
+        }
         
-        leaguesMessage += `🔄 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}\n`
-        leaguesMessage += `💬 Питання? @anton_kravchuk23`
+        // Process each league to get detailed info
+        for (let i = 0; i < userLeagues.length; i++) {
+          const league = userLeagues[i]
+          
+          try {
+            // Get league rosters to find user position
+            const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`)
+            const rosters = rostersResponse.ok ? await rostersResponse.json() as any[] : []
+            
+            // Get league users for team names
+            const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/users`)
+            const leagueUsers = usersResponse.ok ? await usersResponse.json() as any[] : []
+            
+            // Find user's roster and position
+            const userRoster = rosters.find(roster => roster.owner_id === userSleeperUserId)
+            let userPosition = 'N/A'
+            let userTeamName = 'Моя команда'
+            let playoffStatus = ''
+            
+            if (userRoster) {
+              // Sort rosters by wins, then by points to determine standings
+              const sortedRosters = [...rosters].sort((a, b) => {
+                if ((b.settings?.wins || 0) !== (a.settings?.wins || 0)) {
+                  return (b.settings?.wins || 0) - (a.settings?.wins || 0)
+                }
+                return (b.settings?.fpts || 0) - (a.settings?.fpts || 0)
+              })
+              
+              const position = sortedRosters.findIndex(r => r.roster_id === userRoster.roster_id) + 1
+              userPosition = `${position}/${rosters.length}`
+              
+              // Get team name
+              const owner = leagueUsers.find(user => user.user_id === userRoster.owner_id)
+              userTeamName = owner?.display_name || owner?.username || 'Моя команда'
+              
+              // Check playoff eligibility (typically top half makes playoffs)
+              const playoffSpots = league.settings?.playoff_teams || Math.floor(rosters.length / 2)
+              if (position <= playoffSpots) {
+                playoffStatus = ' 🟢'
+              } else {
+                playoffStatus = ' 🔴'
+              }
+            }
+            
+            // Get next opponent for current week
+            let nextOpponent = 'TBD'
+            try {
+              const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${currentWeek}`)
+              const matchups = matchupsResponse.ok ? await matchupsResponse.json() as any[] : []
+              
+              if (userRoster && matchups.length > 0) {
+                const userMatchup = matchups.find(m => m.roster_id === userRoster.roster_id)
+                if (userMatchup) {
+                  const opponentMatchup = matchups.find(m => 
+                    m.matchup_id === userMatchup.matchup_id && m.roster_id !== userRoster.roster_id
+                  )
+                  if (opponentMatchup) {
+                    const opponent = leagueUsers.find(user => {
+                      const opponentRoster = rosters.find(r => r.roster_id === opponentMatchup.roster_id)
+                      return opponentRoster && user.user_id === opponentRoster.owner_id
+                    })
+                    nextOpponent = opponent?.display_name || opponent?.username || 'Невідомий'
+                  }
+                }
+              }
+            } catch (matchupError) {
+              console.error('Error getting matchups:', matchupError)
+            }
+            
+            // Detect league type
+            let leagueType = ''
+            if (league.settings?.best_ball === 1) {
+              leagueType = ' 📊'
+            } else if (league.settings?.type === 2 || league.name.toLowerCase().includes('dynasty')) {
+              leagueType = ' 👑'
+            }
+            
+            const teamCount = league.total_rosters || 12
+            const playoffTeams = league.settings?.playoff_teams || Math.floor(teamCount / 2)
+            
+            leaguesMessage += `**${league.name}**${leagueType}\n`
+            leaguesMessage += `🎯 **${userTeamName}** • ${userPosition} місце${playoffStatus}\n`
+            leaguesMessage += `👥 ${teamCount} команд • 🏆 Плей-оф: ${playoffTeams}\n`
+            leaguesMessage += `📅 Наступний: vs ${nextOpponent}\n`
+            
+            if (i < userLeagues.length - 1) {
+              leaguesMessage += '\n'
+            }
+          } catch (leagueError) {
+            console.error(`Error processing league ${league.league_id}:`, leagueError)
+            // Fallback for this league
+            leaguesMessage += `**${league.name}**\n`
+            leaguesMessage += `👥 ${league.total_rosters || 12} команд • ❓ Завантажується...\n`
+            if (i < userLeagues.length - 1) {
+              leaguesMessage += '\n'
+            }
+          }
+        }
         
-        await sendMessage(telegramToken, chatId, leaguesMessage)
+        leaguesMessage += '\n\n💬 Підтримка: @anton_kravchuk23'
+        
+        await sendMessageMarkdown(telegramToken, chatId, leaguesMessage)
         
       } catch (error) {
         console.error('=== /leagues ERROR ===', error)
