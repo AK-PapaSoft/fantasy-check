@@ -802,7 +802,9 @@ export async function POST(request: NextRequest) {
                 userSleeperUserId = users[0].providers[0].providerUserId
                 
                 // Get user's leagues
-                userLeagues = await getAllUserLeagues(userSleeperUserId)
+                if (userSleeperUserId) {
+                  userLeagues = await getAllUserLeagues(userSleeperUserId)
+                }
               }
             }
           }
