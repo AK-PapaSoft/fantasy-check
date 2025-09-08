@@ -364,8 +364,12 @@ export async function POST(request: NextRequest) {
           const league = userLeagues[i]
           
           try {
-            // Check if this is a pick'em league
-            const isPickemLeague = league.settings?.type === 0
+            // Check if this is a pick'em league or demo mode
+            const isPickemLeague = league.settings?.type === 0 && (
+              league.name.toLowerCase().includes('pick') || 
+              league.name.toLowerCase().includes('pool') ||
+              league.league_id === '1136611430259687424' // Demo: Dynasty lose pool
+            )
             
             if (isPickemLeague) {
               // Handle pick'em league
@@ -664,8 +668,12 @@ export async function POST(request: NextRequest) {
           const league = userLeagues[i]
           
           try {
-            // Check if this is a pick'em league
-            const isPickemLeague = league.settings?.type === 0
+            // Check if this is a pick'em league or demo mode
+            const isPickemLeague = league.settings?.type === 0 && (
+              league.name.toLowerCase().includes('pick') || 
+              league.name.toLowerCase().includes('pool') ||
+              league.league_id === '1136611430259687424' // Demo: Dynasty lose pool
+            )
             
             if (isPickemLeague) {
               // Handle pick'em league in /leagues command
