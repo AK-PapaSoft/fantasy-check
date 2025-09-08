@@ -1031,11 +1031,8 @@ async function handlePickemLeague(league: any, currentWeek: number, chatId: numb
     const user = leagueUsers.find(u => u.user_id === userSleeperUserId)
     const userName = user?.display_name || user?.username || 'Ви'
     
-    // Calculate season stats (simplified - would need actual pick data)
-    const totalWeeks = Math.max(1, currentWeek - 1)
-    const correctPicks = Math.floor(totalWeeks * (0.6 + Math.random() * 0.2)) // Simulated 60-80% accuracy
-    const totalPicks = totalWeeks * 16 // Assume 16 games per week
-    const accuracy = totalPicks > 0 ? (correctPicks / totalPicks * 100) : 0
+    // Note: Pick'em statistics not available through Sleeper API
+    // Would need to track picks/results separately
     
     // Get current standings (simplified)
     const sortedUsers = [...leagueUsers].sort((a, b) => {
@@ -1065,15 +1062,16 @@ async function handlePickemLeague(league: any, currentWeek: number, chatId: numb
 
     let pickemMessage = `**${league.name}** 🎯${deadlineWarning}\n`
     pickemMessage += `🏆 **${userName}** • ${userPosition}/${leagueUsers.length} місце\n`
-    pickemMessage += `📈 Точність сезону: **${accuracy.toFixed(1)}%** (${correctPicks}/${totalPicks})\n`
     
-    // Show this week's status
+    // Show current week status and deadline info
     if (hoursUntilDeadline > 0 && hoursUntilDeadline <= 48) {
-      pickemMessage += `🎯 Тиждень ${currentWeek}: Зробіть вибір до четверга!\n`
-    } else if (weekResults) {
-      // Show week results if available
-      const weekScore = Math.floor(Math.random() * 5) + 10 // Simulated 10-15 correct picks
-      pickemMessage += `📊 Тиждень ${currentWeek}: ${weekScore}/16 правильних\n`
+      if (hoursUntilDeadline <= 6) {
+        pickemMessage += `🚨 **Терміново зробіть вибір!**\n`
+      } else {
+        pickemMessage += `📋 **Час зробити вибір до четверга**\n`
+      }
+    } else {
+      pickemMessage += `✅ **Вибір зроблено** або дедлайн пройшов\n`
     }
     
     return pickemMessage + '\n'
@@ -1095,11 +1093,7 @@ async function handlePickemLeagueForLeagues(league: any, currentWeek: number, us
     const user = leagueUsers.find(u => u.user_id === userSleeperUserId)
     const userName = user?.display_name || user?.username || 'Ви'
     
-    // Calculate season stats (simplified - would need actual pick data)
-    const totalWeeks = Math.max(1, currentWeek - 1)
-    const correctPicks = Math.floor(totalWeeks * (0.65 + Math.random() * 0.15)) // Simulated 65-80% accuracy
-    const totalPicks = totalWeeks * 16 // Assume 16 games per week
-    const accuracy = totalPicks > 0 ? (correctPicks / totalPicks * 100) : 0
+    // Note: Pick'em statistics not available through Sleeper API
     
     // Get current standings (simplified)
     const sortedUsers = [...leagueUsers].sort((a, b) => {
@@ -1132,8 +1126,7 @@ async function handlePickemLeagueForLeagues(league: any, currentWeek: number, us
     
     let pickemMessage = `**${league.name}** 🎯\n`
     pickemMessage += `🏆 **${userName}** • ${userPosition}/${leagueUsers.length} місце${playoffStatus}\n`
-    pickemMessage += `👥 ${leagueUsers.length} учасників • 📈 Точність: ${accuracy.toFixed(1)}%\n`
-    pickemMessage += `📅 Наступний: ${nextAction}\n`
+    pickemMessage += `👥 ${leagueUsers.length} учасників • 📅 Наступний: ${nextAction}\n`
     
     return pickemMessage
 
