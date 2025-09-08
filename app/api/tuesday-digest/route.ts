@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
             // Get league users for team names
             const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/users`)
-            const leagueUsers = usersResponse.ok ? await leagueUsers.json() as any[] : []
+            const leagueUsers = usersResponse.ok ? await usersResponse.json() as any[] : []
             
             const owner = leagueUsers.find(u => u.user_id === sleeperUserId)
             const teamName = owner?.display_name || owner?.username || 'Ваша команда'
