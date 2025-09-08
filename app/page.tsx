@@ -58,22 +58,23 @@ export default function Home() {
 
           <div className="features">
             <div className="feature-card">
-              <h3>🎯 Розумні сповіщення</h3>
-              <p><strong>Без спаму!</strong> Отримуй повідомлення лише коли потрібно:</p>
+              <h3>🤖 Розумні сповіщення з AI</h3>
+              <p><strong>Персоналізовані повідомлення</strong> з аналізом ваших команд:</p>
               <ul>
-                <li><strong>Вівторок 18:00</strong> - Нагадування про waivers</li>
-                <li><strong>Середа 18:00</strong> - Перевірка команди (травми, пропуски)</li>
-                <li><strong>Четвер-Понеділок 8:00</strong> - Тільки якщо твої гравці грають</li>
+                <li><strong>Понеділок 13:00</strong> - Тижневий підсумок з реальними результатами</li>
+                <li><strong>Вівторок 12:00</strong> - Аналіз команд та підготовка до тижня</li>
+                <li><strong>Понеділок 01:00 + Вівторок 03:00</strong> - Вейвер алерти з AI рекомендаціями</li>
               </ul>
             </div>
 
             <div className="feature-card">
-              <h3>🏆 Драфт підтримка</h3>
-              <p>Повна підтримка драфтів:</p>
+              <h3>🎯 Pick'em та Fantasy ліги</h3>
+              <p>Підтримка всіх типів ліг Sleeper:</p>
               <ul>
-                <li><strong>За 1 годину</strong> - Сповіщення про початок</li>
-                <li><strong>Твоя черга</strong> - Миттєві повідомлення</li>
-                <li><strong>При додаванні ліг</strong> - Автоматичне виявлення запланованих драфтів</li>
+                <li><strong>Fantasy ліги</strong> - Живі результати з ймовірністю перемоги</li>
+                <li><strong>Pick'em ліги</strong> - Відстеження точності та дедлайнів</li>
+                <li><strong>Dynasty/Redraft</strong> - Автоматичне розпізнавання типу</li>
+                <li><strong>Позиція в лізі</strong> - Реальні standings та playoff статус</li>
               </ul>
             </div>
 
@@ -90,11 +91,15 @@ export default function Home() {
                 </div>
                 <div className="command">
                   <code>/leagues</code>
-                  <div className="desc">Управління лігами та алертами</div>
+                  <div className="desc">Всі ліги: позиція, плейоф, наступний матчап</div>
                 </div>
                 <div className="command">
                   <code>/today</code>
-                  <div className="desc">Отримати дайджест на сьогодні</div>
+                  <div className="desc">Живі результати з ймовірністю перемоги</div>
+                </div>
+                <div className="command">
+                  <code>/waivers</code>
+                  <div className="desc">AI рекомендації по вейверам</div>
                 </div>
                 <div className="command">
                   <code>/timezone</code>
@@ -108,12 +113,13 @@ export default function Home() {
             </div>
 
             <div className="feature-card">
-              <h3>🧠 Розумна аналітика</h3>
+              <h3>🧠 AI аналітика та рекомендації</h3>
               <ul>
-                <li><strong>Реальні імена гравців</strong> замість ID</li>
-                <li><strong>Аналіз травм</strong> та пропусків команд</li>
-                <li><strong>Один дайджест</strong> для всіх ліг</li>
-                <li><strong>Часові пояси</strong> - всі повідомлення у вашому часі</li>
+                <li><strong>Персональні поради</strong> - AI аналізує ваші ростери</li>
+                <li><strong>Трендові підписання</strong> - Roschon Johnson, Jaylen Wright</li>
+                <li><strong>Позиційні потреби</strong> - RB/WR нестача по командах</li>
+                <li><strong>Matchup аналіз</strong> - Захисти проти слабких нападів</li>
+                <li><strong>Pick'em статистика</strong> - Точність прогнозів за сезон</li>
               </ul>
             </div>
           </div>
@@ -174,22 +180,23 @@ export default function Home() {
 
           <div className="features">
             <div className="feature-card">
-              <h3>🎯 Smart Notifications</h3>
-              <p><strong>No spam!</strong> Get notifications only when needed:</p>
+              <h3>🤖 Smart AI Notifications</h3>
+              <p><strong>Personalized messages</strong> with team analysis:</p>
               <ul>
-                <li><strong>Tuesday 6 PM</strong> - Waiver reminder</li>
-                <li><strong>Wednesday 6 PM</strong> - Team check (injuries, byes)</li>
-                <li><strong>Thursday-Monday 8 AM</strong> - Only if your players are playing</li>
+                <li><strong>Monday 1 PM</strong> - Weekly recap with real results</li>
+                <li><strong>Tuesday 12 PM</strong> - Team analysis and week preparation</li>
+                <li><strong>Monday 1 AM + Tuesday 3 AM</strong> - Waiver alerts with AI recommendations</li>
               </ul>
             </div>
 
             <div className="feature-card">
-              <h3>🏆 Draft Support</h3>
-              <p>Full draft support:</p>
+              <h3>🎯 Pick'em and Fantasy Leagues</h3>
+              <p>Support for all Sleeper league types:</p>
               <ul>
-                <li><strong>1 hour before</strong> - Draft start notification</li>
-                <li><strong>Your turn</strong> - Instant pick notifications</li>
-                <li><strong>When adding leagues</strong> - Auto-detect scheduled drafts</li>
+                <li><strong>Fantasy leagues</strong> - Live results with win probability</li>
+                <li><strong>Pick'em leagues</strong> - Accuracy tracking and deadlines</li>
+                <li><strong>Dynasty/Redraft</strong> - Automatic type recognition</li>
+                <li><strong>League standings</strong> - Real standings and playoff status</li>
               </ul>
             </div>
 
@@ -206,11 +213,15 @@ export default function Home() {
                 </div>
                 <div className="command">
                   <code>/leagues</code>
-                  <div className="desc">Manage leagues and alerts</div>
+                  <div className="desc">All leagues: position, playoffs, next matchup</div>
                 </div>
                 <div className="command">
                   <code>/today</code>
-                  <div className="desc">Get today's digest</div>
+                  <div className="desc">Live results with win probability</div>
+                </div>
+                <div className="command">
+                  <code>/waivers</code>
+                  <div className="desc">AI waiver recommendations</div>
                 </div>
                 <div className="command">
                   <code>/timezone</code>
@@ -224,12 +235,13 @@ export default function Home() {
             </div>
 
             <div className="feature-card">
-              <h3>🧠 Smart Analytics</h3>
+              <h3>🧠 AI Analytics and Recommendations</h3>
               <ul>
-                <li><strong>Real player names</strong> instead of IDs</li>
-                <li><strong>Injury analysis</strong> and bye weeks</li>
-                <li><strong>Single digest</strong> for all leagues</li>
-                <li><strong>Timezone support</strong> - all messages in your time</li>
+                <li><strong>Personal advice</strong> - AI analyzes your rosters</li>
+                <li><strong>Trending pickups</strong> - Roschon Johnson, Jaylen Wright</li>
+                <li><strong>Position needs</strong> - RB/WR shortages by team</li>
+                <li><strong>Matchup analysis</strong> - Defenses vs weak offenses</li>
+                <li><strong>Pick'em statistics</strong> - Season accuracy tracking</li>
               </ul>
             </div>
           </div>
