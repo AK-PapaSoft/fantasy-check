@@ -77,13 +77,10 @@ export async function POST(request: NextRequest) {
         const leaguesController = new AbortController()
         const leaguesTimeoutId = setTimeout(() => leaguesController.abort(), 10000)
         
-        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${userData.user_id}/leagues/nfl/2024`, {
-          signal: leaguesController.signal
-        })
         clearTimeout(leaguesTimeoutId)
         
-        console.log(`=== LEAGUES API RESPONSE STATUS: ${leaguesResponse.status} ===`)
-        const leagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+        console.log(`=== GETTING ALL LEAGUES (NFL + PICKEM) ===`)
+        const leagues = await getAllUserLeagues(userData.user_id)
         console.log(`=== LEAGUES COUNT: ${leagues.length} ===`)
         
         const displayName = userData.display_name || userData.username || username
@@ -332,9 +329,8 @@ export async function POST(request: NextRequest) {
                 const sleeperUserId = users[0].providers[0].providerUserId
                 console.log(`=== FOUND USER SLEEPER ID: ${sleeperUserId} ===`)
                 
-                // Get leagues from Sleeper API using stored user ID
-                const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
-                userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
+                // Get all leagues (NFL + Pick'em) from Sleeper API using stored user ID
+                userLeagues = await getAllUserLeagues(sleeperUserId)
               }
             }
           }
@@ -342,14 +338,12 @@ export async function POST(request: NextRequest) {
           // Fallback to test user if database doesn't have data
           if (userLeagues.length === 0) {
             console.log('=== FALLBACK TO TEST USER ===')
-            const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-            userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+            userLeagues = await getAllUserLeagues('986349820359061504')
           }
         } catch (dbError) {
           console.error('Database error in /today:', dbError)
           // Fallback to test user
-          const testUserResponse = await fetch('https://api.sleeper.app/v1/user/986349820359061504/leagues/nfl/2024')
-          userLeagues = testUserResponse.ok ? await testUserResponse.json() as any[] : []
+          userLeagues = await getAllUserLeagues('986349820359061504')
         }
         
         if (userLeagues.length === 0) {
@@ -364,12 +358,8 @@ export async function POST(request: NextRequest) {
           const league = userLeagues[i]
           
           try {
-            // Check if this is a pick'em league or demo mode
-            const isPickemLeague = league.settings?.type === 0 && (
-              league.name.toLowerCase().includes('pick') || 
-              league.name.toLowerCase().includes('pool') ||
-              league.league_id === '1136611430259687424' // Demo: Dynasty lose pool
-            )
+            // Check if this is a pick'em league
+            const isPickemLeague = league.isPickemLeague || league.sport === 'pickem:nfl'
             
             if (isPickemLeague) {
               // Handle pick'em league
@@ -668,12 +658,8 @@ export async function POST(request: NextRequest) {
           const league = userLeagues[i]
           
           try {
-            // Check if this is a pick'em league or demo mode
-            const isPickemLeague = league.settings?.type === 0 && (
-              league.name.toLowerCase().includes('pick') || 
-              league.name.toLowerCase().includes('pool') ||
-              league.league_id === '1136611430259687424' // Demo: Dynasty lose pool
-            )
+            // Check if this is a pick'em league
+            const isPickemLeague = league.settings?.type === 0
             
             if (isPickemLeague) {
               // Handle pick'em league in /leagues command
@@ -962,6 +948,31 @@ function calculateHoursUntilWaivers(currentDay: number, currentHour: number, wai
   
   const diffMs = nextWaiver.getTime() - now.getTime()
   return diffMs / (1000 * 60 * 60) // Convert to hours
+}
+
+// Helper function to get all user leagues (NFL + Pick'em)
+async function getAllUserLeagues(sleeperUserId: string): Promise<any[]> {
+  try {
+    // Get NFL fantasy leagues for 2024
+    const nflLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
+    const nflLeagues = nflLeaguesResponse.ok ? await nflLeaguesResponse.json() as any[] : []
+    
+    // Get pick'em leagues for 2025
+    const pickemLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/pickem:nfl/2025`)
+    const pickemLeagues = pickemLeaguesResponse.ok ? await pickemLeaguesResponse.json() as any[] : []
+    
+    // Mark pick'em leagues with a special flag for identification
+    const markedPickemLeagues = pickemLeagues.map(league => ({
+      ...league,
+      isPickemLeague: true
+    }))
+    
+    // Combine both types
+    return [...nflLeagues, ...markedPickemLeagues]
+  } catch (error) {
+    console.error('Error getting all user leagues:', error)
+    return []
+  }
 }
 
 // Helper function to handle pick'em leagues
