@@ -431,6 +431,9 @@ export async function POST(request: NextRequest) {
               const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
               todayMessage += `**${safeName}**\n`
               
+              // Check if games have actually started (any team has meaningful points)
+              const hasRealScores = matchups.some(matchup => matchup.points && matchup.points > 2)
+              
               // Group matchups by matchup_id
               const matchupGroups: { [key: number]: any[] } = {}
               matchups.forEach(matchup => {
@@ -495,60 +498,64 @@ export async function POST(request: NextRequest) {
                 const userTeamName = isUserTeam1 ? team1Name : team2Name
                 const opponentName = isUserTeam1 ? team2Name : team1Name
                 
-                const scoreDiff = userTeam.points - opponentTeam.points
-                let status = ''
-                let winProbability = ''
-                
-                // Check if matchup is still ongoing (has players left to play)
-                const userPlayersLeft = userTeam.players_points ? Object.keys(userTeam.players_points).filter(playerId => 
-                  userTeam.players_points[playerId] === 0 && userTeam.players?.includes(playerId)
-                ).length : 0
-                
-                const opponentPlayersLeft = opponentTeam.players_points ? Object.keys(opponentTeam.players_points).filter(playerId => 
-                  opponentTeam.players_points[playerId] === 0 && opponentTeam.players?.includes(playerId)
-                ).length : 0
-                
-                const isMatchupComplete = userPlayersLeft === 0 && opponentPlayersLeft === 0
-                
-                if (isMatchupComplete) {
-                  // Matchup is finished
-                  if (scoreDiff > 0) {
-                    status = `**Перемога** 🏆`
-                  } else if (scoreDiff < 0) {
-                    status = `**Поразка** 📉`
+                if (hasRealScores) {
+                  const scoreDiff = userTeam.points - opponentTeam.points
+                  let status = ''
+                  let winProbability = ''
+                  
+                  // Check if matchup is still ongoing (has players left to play)
+                  const userPlayersLeft = userTeam.players_points ? Object.keys(userTeam.players_points).filter(playerId => 
+                    userTeam.players_points[playerId] === 0 && userTeam.players?.includes(playerId)
+                  ).length : 0
+                  
+                  const opponentPlayersLeft = opponentTeam.players_points ? Object.keys(opponentTeam.players_points).filter(playerId => 
+                    opponentTeam.players_points[playerId] === 0 && opponentTeam.players?.includes(playerId)
+                  ).length : 0
+                  
+                  const isMatchupComplete = userPlayersLeft === 0 && opponentPlayersLeft === 0
+                  
+                  if (isMatchupComplete) {
+                    // Matchup is finished
+                    if (scoreDiff > 0) {
+                      status = `**Перемога** 🏆`
+                    } else if (scoreDiff < 0) {
+                      status = `**Поразка** 📉`
+                    } else {
+                      status = `**Нічия** 🤝`
+                    }
                   } else {
-                    status = `**Нічия** 🤝`
+                    // Matchup is ongoing - show current status and win probability
+                    if (scoreDiff > 0) {
+                      status = `**Ведете** +${scoreDiff.toFixed(1)}`
+                    } else if (scoreDiff < 0) {
+                      status = `**Програєте** ${scoreDiff.toFixed(1)}`
+                    } else {
+                      status = `**Нічия**`
+                    }
+                    
+                    // Calculate simple win probability based on current score and remaining players
+                    let winChance = 50 // Base 50%
+                    
+                    if (scoreDiff > 0) {
+                      // Leading - higher chance
+                      winChance = Math.min(85, 50 + (scoreDiff * 2.5))
+                    } else if (scoreDiff < 0) {
+                      // Trailing - lower chance
+                      winChance = Math.max(15, 50 + (scoreDiff * 2.5))
+                    }
+                    
+                    // Adjust based on remaining players
+                    const playerDiff = userPlayersLeft - opponentPlayersLeft
+                    winChance += playerDiff * 10 // 10% per extra player
+                    winChance = Math.max(5, Math.min(95, winChance))
+                    
+                    winProbability = ` • 📈 ${Math.round(winChance)}% шанс`
                   }
+                  
+                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status}${winProbability})\n`
                 } else {
-                  // Matchup is ongoing - show current status and win probability
-                  if (scoreDiff > 0) {
-                    status = `**Ведете** +${scoreDiff.toFixed(1)}`
-                  } else if (scoreDiff < 0) {
-                    status = `**Програєте** ${scoreDiff.toFixed(1)}`
-                  } else {
-                    status = `**Нічия**`
-                  }
-                  
-                  // Calculate simple win probability based on current score and remaining players
-                  let winChance = 50 // Base 50%
-                  
-                  if (scoreDiff > 0) {
-                    // Leading - higher chance
-                    winChance = Math.min(85, 50 + (scoreDiff * 2.5))
-                  } else if (scoreDiff < 0) {
-                    // Trailing - lower chance
-                    winChance = Math.max(15, 50 + (scoreDiff * 2.5))
-                  }
-                  
-                  // Adjust based on remaining players
-                  const playerDiff = userPlayersLeft - opponentPlayersLeft
-                  winChance += playerDiff * 10 // 10% per extra player
-                  winChance = Math.max(5, Math.min(95, winChance))
-                  
-                  winProbability = ` • 📈 ${Math.round(winChance)}% шанс`
+                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: Ігри ще не почались\n`
                 }
-                
-                todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status}${winProbability})\n`
               })
             }
           } catch (leagueError) {

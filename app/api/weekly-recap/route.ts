@@ -29,9 +29,15 @@ async function handleWeeklyRecap() {
 
     const currentWeek = nflState.week
     const season = nflState.season
-    const lastWeek = currentWeek > 1 ? currentWeek - 1 : 18 // Handle week 1 edge case
+    const lastWeek = currentWeek - 1
 
     console.log(`=== PROCESSING WEEK ${lastWeek} RECAP FOR SEASON ${season} ===`)
+    
+    // Don't send recap for week 0 (before week 1)
+    if (lastWeek < 1) {
+      console.log('=== NO PREVIOUS WEEK TO RECAP (WEEK 1) ===')
+      return NextResponse.json({ ok: true, message: 'No previous week to recap' })
+    }
 
     // In a real implementation, we would:
     // 1. Get all users from the database
