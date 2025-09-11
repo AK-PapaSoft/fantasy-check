@@ -431,8 +431,9 @@ export async function POST(request: NextRequest) {
               const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
               todayMessage += `**${safeName}**\n`
               
-              // Check if games have actually started (any team has meaningful points)
-              const hasRealScores = matchups.some(matchup => matchup.points && matchup.points > 2)
+              // Check if games have actually started - use a more conservative approach
+              // Look for very low scores (< 5) which indicate real gameplay has started
+              const hasRealScores = matchups.some(matchup => matchup.points && matchup.points > 0 && matchup.points < 15)
               
               // Group matchups by matchup_id
               const matchupGroups: { [key: number]: any[] } = {}
@@ -554,7 +555,21 @@ export async function POST(request: NextRequest) {
                   
                   todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status}${winProbability})\n`
                 } else {
-                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: Ігри ще не почались\n`
+                  // Show projection status without fake scores
+                  const scoreDiff = userTeam.points - opponentTeam.points
+                  const status = scoreDiff > 0 ? `Потенціал: +${scoreDiff.toFixed(1)}` : 
+                                scoreDiff < 0 ? `Потенціал: ${scoreDiff.toFixed(1)}` : 
+                                'Потенціал: рівно'
+                  
+                  // Simple projection-based win chance
+                  let winChance = 50
+                  if (scoreDiff > 0) {
+                    winChance = Math.min(80, 50 + (scoreDiff * 1.5))
+                  } else if (scoreDiff < 0) {
+                    winChance = Math.max(20, 50 + (scoreDiff * 1.5))
+                  }
+                  
+                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: (${status} • 📈 ${Math.round(winChance)}% шанс перемоги)\n`
                 }
               })
             }
