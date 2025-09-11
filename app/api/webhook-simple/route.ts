@@ -275,6 +275,7 @@ export async function POST(request: NextRequest) {
 
 🏆 Fantasy функції:
 • /today - Дайджест на сьогодні
+• /lastweek - Результати минулого тижня
 • /leagues - Переглянути мої ліги
 • /waivers - Перевірити дедлайни вейверів
 
@@ -906,6 +907,177 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('=== /waivers ERROR ===', error)
         await sendMessage(telegramToken, chatId, '❌ Помилка при перевірці вейверів.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
+      }
+    } else if (text === '/lastweek') {
+      try {
+        console.log(`=== HANDLING /lastweek COMMAND ===`)
+        
+        await sendMessage(telegramToken, chatId, '📊 Шукаю результати минулого тижня...')
+        
+        // Get current NFL week
+        const nflStateResponse = await fetch('https://api.sleeper.app/v1/state/nfl')
+        const nflState = nflStateResponse.ok ? await nflStateResponse.json() as any : null
+        const currentWeek = nflState?.week || 1
+        const lastWeek = currentWeek - 1
+        
+        if (lastWeek < 1) {
+          await sendMessage(telegramToken, chatId, '❌ **Немає попереднього тижня для відображення**\n\nМи зараз в 1-му тижні сезону.')
+          return NextResponse.json({ ok: true })
+        }
+        
+        // Get user leagues from database
+        let userLeagues: any[] = []
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=id,providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                const sleeperUserId = users[0].providers[0].providerUserId
+                userLeagues = await getAllUserLeagues(sleeperUserId)
+              }
+            }
+          }
+          
+          // Fallback
+          if (userLeagues.length === 0) {
+            userLeagues = await getAllUserLeagues('986349820359061504')
+          }
+        } catch (dbError) {
+          console.error('Database error in /lastweek:', dbError)
+          userLeagues = await getAllUserLeagues('986349820359061504')
+        }
+        
+        if (userLeagues.length === 0) {
+          await sendMessage(telegramToken, chatId, '❌ Не знайдено активних ліг.\n\nВикористайте /link_sleeper <нік> для підключення профілю')
+          return NextResponse.json({ ok: true })
+        }
+        
+        let lastWeekMessage = `📊 **Результати тижня ${lastWeek}**\n\n`
+        let userSleeperUserId: string | null = null
+        
+        // Get user's Sleeper ID 
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseKey) {
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/users?tgUserId=eq.${chatId}&select=providers(providerUserId)`, {
+              headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (userResponse.ok) {
+              const users = await userResponse.json() as any[]
+              if (users.length > 0 && users[0].providers.length > 0) {
+                userSleeperUserId = users[0].providers[0].providerUserId
+              }
+            }
+          }
+          
+          if (!userSleeperUserId) {
+            userSleeperUserId = '986349820359061504' // Fallback
+          }
+        } catch (dbError) {
+          userSleeperUserId = '986349820359061504' // Fallback
+        }
+        
+        // Process each league to get last week results
+        for (let i = 0; i < userLeagues.length; i++) {
+          const league = userLeagues[i]
+          
+          try {
+            // Check if this is a pick'em league
+            const isPickemLeague = league.isPickemLeague || league.sport === 'pickem:nfl'
+            
+            if (isPickemLeague) {
+              // Handle pick'em league results
+              lastWeekMessage += `**${league.name}** (Pick'em)\n`
+              lastWeekMessage += `📈 Результати pick'em за тиждень ${lastWeek} в розробці\n\n`
+              continue
+            }
+            
+            // Handle regular fantasy league
+            // Get last week's matchups
+            const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${lastWeek}`)
+            const matchups = matchupsResponse.ok ? await matchupsResponse.json() as any[] : []
+            
+            // Get league users for team names
+            const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/users`)
+            const leagueUsers = usersResponse.ok ? await usersResponse.json() as any[] : []
+            
+            // Get rosters to map roster_id to owner_id
+            const rostersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/rosters`)
+            const rosters = rostersResponse.ok ? await rostersResponse.json() as any[] : []
+            
+            // Find user's roster and matchup
+            const userRoster = rosters.find(roster => roster.owner_id === userSleeperUserId)
+            if (!userRoster) continue
+            
+            const userMatchup = matchups.find(m => m.roster_id === userRoster.roster_id)
+            if (!userMatchup) continue
+            
+            // Find opponent
+            const opponentMatchup = matchups.find(m => 
+              m.matchup_id === userMatchup.matchup_id && m.roster_id !== userRoster.roster_id
+            )
+            
+            const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+            lastWeekMessage += `**${safeName}**\n`
+            
+            if (opponentMatchup) {
+              const userScore = userMatchup.points || 0
+              const opponentScore = opponentMatchup.points || 0
+              const won = userScore > opponentScore
+              
+              // Get team names
+              const userOwner = leagueUsers.find(u => u.user_id === userSleeperUserId)
+              const opponentRoster = rosters.find(r => r.roster_id === opponentMatchup.roster_id)
+              const opponentOwner = leagueUsers.find(u => u.user_id === opponentRoster?.owner_id)
+              
+              const userTeamName = userOwner?.display_name || userOwner?.username || 'Ви'
+              const opponentName = opponentOwner?.display_name || opponentOwner?.username || 'Суперник'
+              
+              const resultIcon = won ? '🏆' : '📉'
+              const resultText = won ? '**Перемога**' : '**Поразка**'
+              
+              lastWeekMessage += `🌟 **${userTeamName}** vs ${opponentName}\n`
+              lastWeekMessage += `📊 ${userScore.toFixed(1)} - ${opponentScore.toFixed(1)} (${resultText} ${resultIcon})\n`
+              
+              // Get current season record
+              const wins = userRoster.settings?.wins || 0
+              const losses = userRoster.settings?.losses || 0
+              lastWeekMessage += `📈 Загальний рекорд: ${wins}-${losses}\n\n`
+            } else {
+              lastWeekMessage += `🔄 Не було матчапу в тижні ${lastWeek}\n\n`
+            }
+            
+          } catch (leagueError) {
+            console.error(`Error processing league ${league.league_id}:`, leagueError)
+            lastWeekMessage += `❌ Помилка отримання даних для ${league.name}\n\n`
+          }
+        }
+        
+        lastWeekMessage += `💡 Для поточного тижня використовуйте /today`
+        
+        await sendMessageMarkdown(telegramToken, chatId, lastWeekMessage)
+        
+      } catch (error) {
+        console.error('=== /lastweek ERROR ===', error)
+        await sendMessage(telegramToken, chatId, '❌ Помилка при отриманні результатів минулого тижня.\n\nСпробуйте пізніше або зв\'яжіться з підтримкою @anton_kravchuk23')
       }
     } else if (text === '/timezone') {
       await sendMessage(telegramToken, chatId, '🌍 **Налаштування часового поясу**\n\nНаразі бот використовує київський час (Europe/Kiev).\n\nДля зміни часового поясу напишіть:\n`/timezone America/New_York`\n`/timezone Europe/London`\n`/timezone America/Los_Angeles`\n\nСписок доступних поясів: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones')
