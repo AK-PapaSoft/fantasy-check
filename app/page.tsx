@@ -61,9 +61,11 @@ export default function Home() {
               <h3>🤖 Розумні сповіщення з AI</h3>
               <p><strong>Персоналізовані повідомлення</strong> з аналізом ваших команд:</p>
               <ul>
-                <li><strong>Понеділок 13:00</strong> - Тижневий підсумок з реальними результатами</li>
-                <li><strong>Вівторок 12:00</strong> - Аналіз команд та підготовка до тижня</li>
-                <li><strong>Понеділок 01:00 + Вівторок 03:00</strong> - Вейвер алерти з AI рекомендаціями</li>
+                <li><strong>Понеділок 10:00</strong> - Тижневий підсумок з реальними результатами</li>
+                <li><strong>Понеділок 21:00</strong> - Вейвер алерти перед дедлайном</li>
+                <li><strong>Вівторок 09:00</strong> - Аналіз команд та підготовка до тижня</li>
+                <li><strong>Вівторок 10:00</strong> - Додаткові вейвер алерти з AI рекомендаціями</li>
+                <li><strong>Четвер + П'ятниця 18:00</strong> - Попередній огляд тижня NFL</li>
               </ul>
             </div>
 
@@ -183,9 +185,11 @@ export default function Home() {
               <h3>🤖 Smart AI Notifications</h3>
               <p><strong>Personalized messages</strong> with team analysis:</p>
               <ul>
-                <li><strong>Monday 1 PM</strong> - Weekly recap with real results</li>
-                <li><strong>Tuesday 12 PM</strong> - Team analysis and week preparation</li>
-                <li><strong>Monday 1 AM + Tuesday 3 AM</strong> - Waiver alerts with AI recommendations</li>
+                <li><strong>Monday 10 AM</strong> - Weekly recap with real results</li>
+                <li><strong>Monday 9 PM</strong> - Waiver alerts before deadline</li>
+                <li><strong>Tuesday 9 AM</strong> - Team analysis and week preparation</li>
+                <li><strong>Tuesday 10 AM</strong> - Additional waiver alerts with AI recommendations</li>
+                <li><strong>Thursday + Friday 6 PM</strong> - NFL week preview</li>
               </ul>
             </div>
 
