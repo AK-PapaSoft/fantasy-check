@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  return handleTuesdayDigest()
+}
+
+export async function GET() {
+  return handleTuesdayDigest()
+}
+
+async function handleTuesdayDigest() {
   try {
     console.log('=== TUESDAY DIGEST TRIGGERED ===', new Date().toISOString())
     

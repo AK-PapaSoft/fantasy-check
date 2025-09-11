@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  return handleWeeklyRecap()
+}
+
+export async function GET() {
+  return handleWeeklyRecap()
+}
+
+async function handleWeeklyRecap() {
   try {
     console.log('=== WEEKLY RECAP TRIGGERED ===', new Date().toISOString())
     

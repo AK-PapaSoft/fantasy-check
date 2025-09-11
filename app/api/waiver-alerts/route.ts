@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  return handleWaiverAlerts()
+}
+
+export async function GET() {
+  return handleWaiverAlerts()
+}
+
+async function handleWaiverAlerts() {
   try {
     console.log('=== WAIVER ALERTS TRIGGERED ===', new Date().toISOString())
     
