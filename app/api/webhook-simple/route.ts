@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         
-        // Get user's leagues for current season (2024) with timeout
+        // Get user's leagues for current season with timeout
         console.log(`=== CALLING LEAGUES API FOR USER ID: ${userData.user_id} ===`)
         const leaguesController = new AbortController()
         const leaguesTimeoutId = setTimeout(() => leaguesController.abort(), 10000)
@@ -82,6 +82,11 @@ export async function POST(request: NextRequest) {
         console.log(`=== GETTING ALL LEAGUES (NFL + PICKEM) ===`)
         const leagues = await getAllUserLeagues(userData.user_id)
         console.log(`=== LEAGUES COUNT: ${leagues.length} ===`)
+        
+        // Get current season for display and database saving
+        const nflStateResponse = await fetch('https://api.sleeper.app/v1/state/nfl')
+        const nflState = nflStateResponse.ok ? await nflStateResponse.json() as any : null
+        const currentSeason = nflState?.season || 2025
         
         const displayName = userData.display_name || userData.username || username
         const avatar = userData.avatar ? `https://sleepercdn.com/avatars/thumbs/${userData.avatar}` : null
@@ -94,7 +99,7 @@ export async function POST(request: NextRequest) {
         }
         
         if (leagues && leagues.length > 0) {
-          responseMessage += `\n\n🏈 Ліги NFL 2024 (${leagues.length}):`
+          responseMessage += `\n\n🏈 Ліги NFL ${currentSeason} (${leagues.length}):`
           leagues.slice(0, 5).forEach((league: any, index: number) => {
             // Escape special characters in league name to prevent Markdown issues
             const safeName = league.name.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
@@ -118,7 +123,7 @@ export async function POST(request: NextRequest) {
             responseMessage += `\n... і ще ${leagues.length - 5} ліг`
           }
         } else {
-          responseMessage += `\n\n🏈 Ліги NFL 2024: Не знайдено`
+          responseMessage += `\n\n🏈 Ліги NFL ${currentSeason}: Не знайдено`
         }
         
         // Try to save to Supabase directly (without Prisma)
@@ -211,7 +216,7 @@ export async function POST(request: NextRequest) {
                         provider: 'sleeper',
                         providerLeagueId: league.league_id,
                         name: league.name,
-                        season: 2024,
+                        season: currentSeason,
                         sport: 'nfl',
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString()
@@ -1182,12 +1187,17 @@ function calculateHoursUntilWaivers(currentDay: number, currentHour: number, wai
 // Helper function to get all user leagues (NFL + Pick'em)
 async function getAllUserLeagues(sleeperUserId: string): Promise<any[]> {
   try {
-    // Get NFL fantasy leagues for 2024
-    const nflLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
+    // Get current NFL season from Sleeper API
+    const nflStateResponse = await fetch('https://api.sleeper.app/v1/state/nfl')
+    const nflState = nflStateResponse.ok ? await nflStateResponse.json() as any : null
+    const currentSeason = nflState?.season || 2025 // Default to 2025 if API fails
+    
+    // Get NFL fantasy leagues for current season
+    const nflLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/${currentSeason}`)
     const nflLeagues = nflLeaguesResponse.ok ? await nflLeaguesResponse.json() as any[] : []
     
-    // Get pick'em leagues for 2025
-    const pickemLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/pickem:nfl/2025`)
+    // Get pick'em leagues for current season
+    const pickemLeaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/pickem:nfl/${currentSeason}`)
     const pickemLeagues = pickemLeaguesResponse.ok ? await pickemLeaguesResponse.json() as any[] : []
     
     // Mark pick'em leagues with a special flag for identification

@@ -85,8 +85,8 @@ async function handleWeeklyRecap() {
       const sleeperUserId = user.providers[0].providerUserId
       
       try {
-        // Get user's leagues for real data
-        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/2024`)
+        // Get user's leagues for current season
+        const leaguesResponse = await fetch(`https://api.sleeper.app/v1/user/${sleeperUserId}/leagues/nfl/${season}`)
         const userLeagues = leaguesResponse.ok ? await leaguesResponse.json() as any[] : []
         
         if (userLeagues.length === 0) {
