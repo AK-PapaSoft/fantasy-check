@@ -82,7 +82,7 @@ async function handleWeekPreview() {
         const today = new Date()
         const dayName = today.toLocaleDateString('uk-UA', { weekday: 'long' })
         
-        let previewMessage = `🏈 **${dayName} - Попередній огляд тижня ${currentWeek}**\\n\\n`
+        let previewMessage = `🏈 **${dayName} - Попередній огляд тижня ${currentWeek}**\n\n`
         
         // Analyze each league for upcoming matchups
         for (const league of userLeagues.slice(0, 4)) {
@@ -119,8 +119,8 @@ async function handleWeekPreview() {
               }
             }
 
-            previewMessage += `**${league.name}**\\n`
-            previewMessage += `⚡ ${teamName} vs ${opponentName}\\n`
+            previewMessage += `**${league.name}**\n`
+            previewMessage += `⚡ ${teamName} vs ${opponentName}\n`
             
             // Get league standings
             const standings = [...rosters].sort((a, b) => {
@@ -133,22 +133,22 @@ async function handleWeekPreview() {
             const userPosition = standings.findIndex(r => r.roster_id === userRoster.roster_id) + 1
             const totalTeams = standings.length
             
-            previewMessage += `📊 ${userPosition}/${totalTeams} місце\\n\\n`
+            previewMessage += `📊 ${userPosition}/${totalTeams} місце\n\n`
 
           } catch (leagueError) {
             console.error(`Error analyzing league ${league.league_id}:`, leagueError)
           }
         }
 
-        previewMessage += `📅 **Що попереду цього тижня:**\\n`
-        previewMessage += `• Перші ігри: четвер вечір\\n`
-        previewMessage += `• Основні ігри: неділя\\n`
-        previewMessage += `• Monday Night Football\\n\\n`
+        previewMessage += `📅 **Що попереду цього тижня:**\n`
+        previewMessage += `• Перші ігри: четвер вечір\n`
+        previewMessage += `• Основні ігри: неділя\n`
+        previewMessage += `• Monday Night Football\n\n`
         
-        previewMessage += `💡 **Нагадування:**\\n`
-        previewMessage += `• Перевірте травми перед неділею\\n`
-        previewMessage += `• Налаштуйте склад до четверга\\n`
-        previewMessage += `• Слідкуйте за прогнозом погоди\\n\\n`
+        previewMessage += `💡 **Нагадування:**\n`
+        previewMessage += `• Перевірте травми перед неділею\n`
+        previewMessage += `• Налаштуйте склад до четверга\n`
+        previewMessage += `• Слідкуйте за прогнозом погоди\n\n`
         
         previewMessage += `💬 Підтримка: @anton_kravchuk23`
 
