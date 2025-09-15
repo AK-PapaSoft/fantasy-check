@@ -508,7 +508,6 @@ export async function POST(request: NextRequest) {
                 if (hasRealScores) {
                   const scoreDiff = userTeam.points - opponentTeam.points
                   let status = ''
-                  let winProbability = ''
                   
                   // Check if matchup is still ongoing (has players left to play)
                   const userPlayersLeft = userTeam.players_points ? Object.keys(userTeam.players_points).filter(playerId => 
@@ -540,26 +539,9 @@ export async function POST(request: NextRequest) {
                       status = `**Нічия**`
                     }
                     
-                    // Calculate simple win probability based on current score and remaining players
-                    let winChance = 50 // Base 50%
-                    
-                    if (scoreDiff > 0) {
-                      // Leading - higher chance
-                      winChance = Math.min(85, 50 + (scoreDiff * 2.5))
-                    } else if (scoreDiff < 0) {
-                      // Trailing - lower chance
-                      winChance = Math.max(15, 50 + (scoreDiff * 2.5))
-                    }
-                    
-                    // Adjust based on remaining players
-                    const playerDiff = userPlayersLeft - opponentPlayersLeft
-                    winChance += playerDiff * 10 // 10% per extra player
-                    winChance = Math.max(5, Math.min(95, winChance))
-                    
-                    winProbability = ` • 📈 ${Math.round(winChance)}% шанс`
                   }
                   
-                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status}${winProbability})\n`
+                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: ${userTeam.points.toFixed(1)} - ${opponentTeam.points.toFixed(1)} (${status})\n`
                 } else {
                   // Show projection status without fake scores
                   const scoreDiff = userTeam.points - opponentTeam.points
@@ -567,15 +549,7 @@ export async function POST(request: NextRequest) {
                                 scoreDiff < 0 ? `Потенціал: ${scoreDiff.toFixed(1)}` : 
                                 'Потенціал: рівно'
                   
-                  // Simple projection-based win chance
-                  let winChance = 50
-                  if (scoreDiff > 0) {
-                    winChance = Math.min(80, 50 + (scoreDiff * 1.5))
-                  } else if (scoreDiff < 0) {
-                    winChance = Math.max(20, 50 + (scoreDiff * 1.5))
-                  }
-                  
-                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: (${status} • 📈 ${Math.round(winChance)}% шанс перемоги)\n`
+                  todayMessage += `🌟 **${userTeamName}** vs ${opponentName}: (${status})\n`
                 }
               })
             }
