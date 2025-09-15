@@ -16,6 +16,42 @@ export default function Home() {
         <span className={currentLang === 'uk' ? 'hidden' : ''}>🇺🇦 УКР</span>
       </button>
 
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 1000
+      }}>
+        <a 
+          href="https://buymeacoffee.com/cleareds" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '8px 16px',
+            backgroundColor: '#FFDD00',
+            color: '#000',
+            textDecoration: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            transition: 'transform 0.2s, box-shadow 0.2s'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
+          }}
+        >
+          ☕ Buy me a coffee
+        </a>
+      </div>
+
       <div className="container">
         {/* Ukrainian Version */}
         <div className={currentLang !== 'uk' ? 'hidden' : ''}>
