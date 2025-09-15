@@ -161,6 +161,8 @@ async function handleWeeklyRecap() {
         }
 
         // Build personalized message
+        const clockEmoji = '🕐'
+        const speechBubbleEmoji = '💬'
         const weeklyRecapMessage = `📊 **Понеділковий огляд** (Тиждень ${currentWeek})
 
 🏈 **Поточний стан матчапів:**
@@ -176,11 +178,11 @@ ${totalWins > 0 || totalLosses > 0 ?
 💡 **Що далі:**
 • Матчі тривають до вівторка
 • Слідкуйте за прогресом у /today
-• Monday Night Football сьогодні ввечері`
+• Monday Night Football сьогодні ввечері
 
-🕐 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}
+${clockEmoji} Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}
 
-💬 Підтримка: @anton_kravchuk23`
+${speechBubbleEmoji} Підтримка: @anton_kravchuk23`
 
         // Send to this user
         await sendMessage(telegramToken, userTgId, weeklyRecapMessage)

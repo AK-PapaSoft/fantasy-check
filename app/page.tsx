@@ -40,14 +40,6 @@ export default function Home() {
             border: '2px solid #000',
             transition: 'transform 0.2s, box-shadow 0.2s'
           }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'translateY(-1px)'
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)'
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
-          }}
         >
           ☕ Buy me a coffee
         </a>
