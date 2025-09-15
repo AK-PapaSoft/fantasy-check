@@ -97,7 +97,7 @@ export default function Home() {
               <h3>🤖 Розумні сповіщення з AI</h3>
               <p><strong>Персоналізовані повідомлення</strong> з аналізом ваших команд:</p>
               <ul>
-                <li><strong>Понеділок 10:00</strong> - Тижневий підсумок з реальними результатами</li>
+                <li><strong>Понеділок 12:00</strong> - Поточний стан матчапів та прогрес тижня</li>
                 <li><strong>Понеділок 21:00</strong> - Вейвер алерти перед дедлайном</li>
                 <li><strong>Вівторок 09:00</strong> - Аналіз команд та підготовка до тижня</li>
                 <li><strong>Вівторок 10:00</strong> - Додаткові вейвер алерти з AI рекомендаціями</li>
@@ -221,7 +221,7 @@ export default function Home() {
               <h3>🤖 Smart AI Notifications</h3>
               <p><strong>Personalized messages</strong> with team analysis:</p>
               <ul>
-                <li><strong>Monday 10 AM</strong> - Weekly recap with real results</li>
+                <li><strong>Monday 12 PM</strong> - Current matchup status and week progress</li>
                 <li><strong>Monday 9 PM</strong> - Waiver alerts before deadline</li>
                 <li><strong>Tuesday 9 AM</strong> - Team analysis and week preparation</li>
                 <li><strong>Tuesday 10 AM</strong> - Additional waiver alerts with AI recommendations</li>

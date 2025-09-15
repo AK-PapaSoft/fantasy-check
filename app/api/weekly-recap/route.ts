@@ -29,15 +29,8 @@ async function handleWeeklyRecap() {
 
     const currentWeek = nflState.week
     const season = nflState.season
-    const lastWeek = currentWeek - 1
 
-    console.log(`=== PROCESSING WEEK ${lastWeek} RECAP FOR SEASON ${season} ===`)
-    
-    // Don't send recap for week 0 (before week 1)
-    if (lastWeek < 1) {
-      console.log('=== NO PREVIOUS WEEK TO RECAP (WEEK 1) ===')
-      return NextResponse.json({ ok: true, message: 'No previous week to recap' })
-    }
+    console.log(`=== PROCESSING CURRENT WEEK ${currentWeek} PROGRESS FOR SEASON ${season} ===`)
 
     // In a real implementation, we would:
     // 1. Get all users from the database
@@ -112,8 +105,8 @@ async function handleWeeklyRecap() {
             const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/users`)
             const leagueUsers = usersResponse.ok ? await usersResponse.json() as any[] : []
             
-            // Get last week's matchup
-            const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${lastWeek}`)
+            // Get current week's matchup progress
+            const matchupsResponse = await fetch(`https://api.sleeper.app/v1/league/${league.league_id}/matchups/${currentWeek}`)
             const matchups = matchupsResponse.ok ? await matchupsResponse.json() as any[] : []
             
             const userMatchup = matchups.find(m => m.roster_id === userRoster.roster_id)
@@ -128,19 +121,34 @@ async function handleWeeklyRecap() {
               
               if (opponentMatchup) {
                 const opponentScore = opponentMatchup.points || 0
-                const won = userScore > opponentScore
                 
-                if (won) totalWins++
-                else totalLosses++
+                // Check if games have started for this matchup
+                const hasRealScores = userScore > 5 || opponentScore > 5
                 
-                // Get position in league
+                // Get position in league based on season record
                 const sortedRosters = [...rosters].sort((a, b) => 
                   (b.settings?.wins || 0) - (a.settings?.wins || 0)
                 )
                 const position = sortedRosters.findIndex(r => r.roster_id === userRoster.roster_id) + 1
                 
-                const resultIcon = won ? '🏆' : '📉'
-                leagueResults.push(`• ${league.name}: ${position} місце (${userScore.toFixed(1)} очок) ${resultIcon}`)
+                if (hasRealScores) {
+                  // Games in progress - show current status
+                  const leading = userScore > opponentScore
+                  const statusIcon = leading ? '📈' : '📉'
+                  const statusText = leading ? 'Ведете' : 'Відстаєте'
+                  const scoreDiff = Math.abs(userScore - opponentScore)
+                  
+                  leagueResults.push(`• ${league.name}: ${position} місце | ${statusText} ${userScore.toFixed(1)}-${opponentScore.toFixed(1)} (+${scoreDiff.toFixed(1)}) ${statusIcon}`)
+                  
+                  // Track for stats (current week performance)
+                  if (leading) totalWins++
+                  else totalLosses++
+                } else {
+                  // Games not started yet
+                  leagueResults.push(`• ${league.name}: ${position} місце | Ігри ще не почались 🕐`)
+                }
+                
+                bestScore = Math.max(bestScore, userScore)
               }
             }
           } catch (leagueError) {
@@ -153,20 +161,22 @@ async function handleWeeklyRecap() {
         }
 
         // Build personalized message
-        const weeklyRecapMessage = `📈 **Тижневий підсумок** (Тиждень ${lastWeek})
+        const weeklyRecapMessage = `📊 **Понеділковий огляд** (Тиждень ${currentWeek})
 
-🏈 **Ваші результати:**
+🏈 **Поточний стан матчапів:**
 ${leagueResults.join('\n')}
 
-📊 **Загальна статистика:**
-🏆 Перемоги: ${totalWins}/${totalWins + totalLosses}
-📉 Поразки: ${totalLosses}/${totalWins + totalLosses}
-⭐ Найкращий матч: ${bestScore.toFixed(1)} очок
+📈 **Поточна статистика:**
+${totalWins > 0 || totalLosses > 0 ? 
+  `🔥 Ведете: ${totalWins} матчап(ів)
+📉 Відстаєте: ${totalLosses} матчап(ів)` : 
+  `🕐 Ігри ще не почались`}
+⭐ Найкращий результат: ${bestScore.toFixed(1)} очок
 
-🔮 **Цього тижня (${currentWeek}):**
-• Нові матчі розпочалися
-• Перевірте склади команд
-• Слідкуйте за травмами
+💡 **Що далі:**
+• Матчі тривають до вівторка
+• Слідкуйте за прогресом у /today
+• Monday Night Football сьогодні ввечері`
 
 ⏰ Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}
 💬 Підтримка: @anton_kravchuk23`
