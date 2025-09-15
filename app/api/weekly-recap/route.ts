@@ -178,7 +178,8 @@ ${totalWins > 0 || totalLosses > 0 ?
 • Слідкуйте за прогресом у /today
 • Monday Night Football сьогодні ввечері`
 
-⏰ Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}
+🕐 Оновлено: ${new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kiev' })}
+
 💬 Підтримка: @anton_kravchuk23`
 
         // Send to this user

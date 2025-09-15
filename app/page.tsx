@@ -20,7 +20,7 @@ export default function Home() {
         position: 'fixed',
         top: '20px',
         right: '20px',
-        zIndex: 1000
+        zIndex: 9999
       }}>
         <a 
           href="https://buymeacoffee.com/cleareds" 
@@ -29,14 +29,15 @@ export default function Home() {
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            padding: '8px 16px',
+            padding: '10px 20px',
             backgroundColor: '#FFDD00',
             color: '#000',
             textDecoration: 'none',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            borderRadius: '12px',
+            fontSize: '16px',
+            fontWeight: '700',
+            boxShadow: '0 4px 16px rgba(255,221,0,0.4)',
+            border: '2px solid #000',
             transition: 'transform 0.2s, box-shadow 0.2s'
           }}
           onMouseOver={(e) => {
